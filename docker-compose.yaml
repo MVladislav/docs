@@ -1,0 +1,16 @@
+services:
+  jekyll:
+    image: bretfisher/jekyll
+    stdin_open: true
+    tty: true
+    ports:
+      - 4000:4000
+    environment:
+      JEKYLL_ENV: production
+      JEKYLL_UID: 2000
+      JEKYLL_GID: 3366
+    volumes:
+      - $PWD:/srv/jekyll
+    working_dir: /srv/jekyll
+    entrypoint: bash
+    command: -c "bundle install && bundle exec jekyll s -l -H 0.0.0.0"
