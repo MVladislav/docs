@@ -642,12 +642,12 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 #### DHCP ranges
 
-> Define your required DHCP ranges for the subnets you created in **[Interfaces](#-interfaces--*)**.  
+> Define your required DHCP ranges for the subnets you created in **[Interfaces](#-interfaces--)**.  
 > {: .prompt-info }
 
 #### DHCP options
 
-> Remember we defined the **DNS server** under **[Aliases](#aliases)** with the alias `IP_S_DNS_NTP_INTERN`.  
+> Remember we defined the **DNS server** under **[Aliases](#-aliases--aliases)** with the alias `IP_S_DNS_NTP_INTERN`.  
 > {: .prompt-info }
 
 | Entry (Description) | Key       | Value                   |
