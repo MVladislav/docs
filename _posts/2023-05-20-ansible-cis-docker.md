@@ -1,10 +1,10 @@
 ---
 layout: post
 title: CIS - Docker (ansible)
-date: 2023-05-20 19:55:00 +0200
 categories:
   - CIS
   - Docker
+  - Ansible
 tags:
   - security
   - hardening

@@ -1,10 +1,10 @@
 ---
 layout: post
 title: CIS - Ubuntu 22.04 (ansible)
-date: 2023-05-20 20:00:00 +0200
 categories:
   - CIS
   - Ubuntu
+  - Ansible
 tags:
   - security
   - hardening
