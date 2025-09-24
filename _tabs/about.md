@@ -39,14 +39,8 @@ order: 4
 [<img align="left" alt="Vladislav M. | Kit" title="Vladislav M. | Kit" width="26px" src="/assets/img/about/icons/kit.svg"/>][kit]
 [<img align="left" alt="Vladislav M. | DockerHub" title="Vladislav M. | Kit" width="26px" src="/assets/img/about/icons/docker.svg"/>][dockerhub]
 
-</br>
-</br>
-
 [<img align="left" alt="HackTheBox" title="Wh1teP0ny | HackTheBox" width="220px" src="https://www.hackthebox.eu/badge/image/381560">][hackthebox • profile]
 [<img align="left" alt="TryHackMe" title="Wh1teP0ny | TryHackMe" width="220px" src="https://tryhackme-badges.s3.amazonaws.com/Wh1teP0ny.png">][tryhackme • profile]
-
-</br>
-</br>
 
 └─────────────────────────────────•••
 
@@ -75,24 +69,15 @@ order: 4
 [<img align="left" alt="elastic" title="elastic" width="26px" src="/assets/img/about/icons/elastic.svg"/>][mvladislav]
 [<img align="left" alt="elasticsearch" title="elasticsearch" width="26px" src="/assets/img/about/icons/elasticsearch.svg"/>][mvladislav]
 
-</br>
-</br>
-
 [<img align="left" alt="Proxmox" title="Proxmox" width="26px" src="/assets/img/about/icons/Proxmox.svg"/>][mvladislav]
 [<img align="left" alt="docker" title="docker" width="26px" src="/assets/img/about/icons/docker.svg"/>][mvladislav]
 [<img align="left" alt="kubernetes" title="kubernetes" width="26px" src="/assets/img/about/icons/kubernetes.svg"/>][mvladislav]
 [<img align="left" alt="Ansible" title="Ansible" width="26px" src="/assets/img/about/icons/Ansible.svg"/>][mvladislav]
 [<img align="left" alt="terraform" title="terraform" width="26px" src="/assets/img/about/icons/terraform.svg"/>][mvladislav]
 
-</br>
-</br>
-
 [<img align="left" alt="python" title="python" width="26px" src="/assets/img/about/languages/python.svg"/>][mvladislav]
 [<img align="left" alt="C++" title="C++" width="26px" src="/assets/img/about/languages/C++.svg"/>][mvladislav]
 [<img align="left" alt="Java" title="Java" width="26px" src="/assets/img/about/languages/Java.svg"/>][mvladislav]
-
-</br>
-</br>
 
 [<img align="left" alt="CSS3" title="CSS3" width="26px" src="/assets/img/about/languages/CSS3.svg"/>][mvladislav]
 [<img align="left" alt="HTML5" title="HTML5" width="26px" src="/assets/img/about/languages/HTML5.svg"/>][mvladislav]
@@ -103,22 +88,13 @@ order: 4
 [<img align="left" alt="Angular" title="Angular" width="26px" src="/assets/img/about/languages/Angular.svg"/>][mvladislav]
 [<img align="left" alt="TYPO3" title="TYPO3" width="26px" src="/assets/img/about/languages/TYPO3.svg"/>][mvladislav]
 
-</br>
-</br>
-
 [<img align="left" alt="MongoDB" title="MongoDB" width="26px" src="/assets/img/about/languages/MongoDB.svg"/>][mvladislav]
 [<img align="left" alt="SQLite" title="SQLite" width="26px" src="/assets/img/about/languages/SQLite.svg"/>][mvladislav]
 [<img align="left" alt="MariaDB" title="MariaDB" width="26px" src="/assets/img/about/languages/mariadb.svg"/>][mvladislav]
 [<img align="left" alt="Oracle" title="Oracle" width="26px" src="/assets/img/about/languages/Oracle.svg"/>][mvladislav]
 
-</br>
-</br>
-
 [<img align="left" alt="homeassistant" title="homeassistant" width="26px" src="/assets/img/about/icons/homeassistant.svg"/>][mvladislav]
 [<img align="left" alt="ubiquiti" title="ubiquiti" width="26px" src="/assets/img/about/icons/ubiquiti.svg"/>][mvladislav]
-
-</br>
-</br>
 
 └──────────────────────•••
 
