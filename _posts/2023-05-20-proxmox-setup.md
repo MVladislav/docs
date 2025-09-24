@@ -1,7 +1,6 @@
 ---
 layout: post
 title: Proxmox Setup
-date: 2023-05-20 04:50:00 +0200
 categories:
   - Infrastructure
   - Proxmox
@@ -333,25 +332,36 @@ update the **root** `/root/.ssh/config` file, like follow:
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
 # ~/.ssh/config
 
-# RSA keys are favored over ECDSA keys when backward compatibility ''is required'',
-# thus, newly generated keys are always either ED25519 or RSA (NOT ECDSA or DSA).
-# ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_comment_$(date +%Y_%m_%d)     -C "$(hostname)-$(date +%Y-%m-%d)-comment"
+# EXAMPLE: Generate an RSA key (4096 bits)
+# ssh-keygen -t rsa -b 4096 -o -f ~/.ssh/id_rsa_<type>_<purpose>_$(date +%Y_%m_%d) -C "<type>_<purpose>_$(date +%Y_%m_%d)"
+#
+# EXAMPLE: Generate an ED25519 key (modern & fast)
+# ssh-keygen -t ed25519 -o -f ~/.ssh/id_ed25519_<type>_<purpose>_$(date +%Y_%m_%d) -C "<type>_<purpose>_$(date +%Y_%m_%d)"
+#
+# EXAMPLE: Generate an ED25519-SK key (hardware-backed, e.g., YubiKey)
+# ssh-keygen -t ed25519-sk -o -f ~/.ssh/id_ed25519_sk_<type>_<purpose>_$(date +%Y_%m_%d) -C "<type>_<purpose>_$(date +%Y_%m_%d)"
+#
+# EXAMPLE: Generate an ECDSA key (P-384 curve)
+# ssh-keygen -t ecdsa -b 384 -o -f ~/.ssh/id_ecdsa_p384_<type>_<purpose>_$(date +%Y_%m_%d) -C "<type>_<purpose>_$(date +%Y_%m_%d)"
+#
+# PLACEHOLDER INFO:
+#   - <type>   : e.g., infra, service, server
+#   - <purpose>: e.g., nas, hetzner, test
 
-# ED25519 keys are favored over RSA keys when backward compatibility ''is not required''.
-# This is only compatible with OpenSSH 6.5+ and fixed-size (256 bytes).
-# ssh-keygen -t ed25519     -f ~/.ssh/id_ed25519_comment_$(date +%Y_%m_%d) -C "$(hostname)-$(date +%Y-%m-%d)-comment"
-# ssh-keygen -t ed25519-sk  -f ~/.ssh/id_ed25519_comment_$(date +%Y_%m_%d) -C "$(hostname)-$(date +%Y-%m-%d)-comment"
 # ------------------------------------------------------------------------------
 # Ensure KnownHosts are unreadable if leaked - it is otherwise easier to know which hosts your keys have access to.
 HashKnownHosts yes
+
 # Host keys the client accepts - order here is honored by OpenSSH
-HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-512-cert-v01@openssh.com
+HostKeyAlgorithms ssh-ed25519-cert-v01@openssh.com,ssh-rsa-cert-v01@openssh.com,ssh-ed25519,ssh-rsa,ecdsa-sha2-nistp521-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,ecdsa-sha2-nistp256
 
-KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256
-MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+KexAlgorithms curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+MACs hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
 
+# GENERIC ----------------------------------------------------------------------
 Host *
+  SetEnv TERM=xterm-256color
   User root
   Port 22
   LogLevel INFO
@@ -361,8 +371,10 @@ Host *
   GSSAPIAuthentication yes
   IdentitiesOnly yes
   AddressFamily inet
+  # Preferredauthentications keyboard-interactive,password,publickey,hostbased,gssapi-with-mic
   Protocol 2
   ServerAliveInterval 60
+  # DynamicForward <PORT>
 ```
 
 harden the SSH configuration by open `/etc/ssh/sshd_config` and setup like follow:
@@ -371,124 +383,47 @@ harden the SSH configuration by open `/etc/ssh/sshd_config` and setup like follo
 
 ```properties
 Include /etc/ssh/sshd_config.d/*.conf
-
+KbdInteractiveAuthentication no
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp  /usr/lib/ssh/sftp-server -f AUTHPRIV -l INFO
+Banner /etc/issue.net
+Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+ClientAliveInterval 15
+ClientAliveCountMax 3
+DisableForwarding yes
+GSSAPIAuthentication no
+HostbasedAuthentication no
+IgnoreRhosts yes
+KexAlgorithms curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+LoginGraceTime 60
+LogLevel VERBOSE
+MACs hmac-sha2-512,hmac-sha2-256,hmac-sha1,umac-128@openssh.com
+MaxAuthTries 4
+MaxSessions 10
+MaxStartups 10:30:60
+PermitEmptyPasswords no
+PermitRootLogin yes
+PermitUserEnvironment no
 Port 22
 AddressFamily inet
 ListenAddress 0.0.0.0
-
-HostKey /etc/ssh/ssh_host_rsa_key
-HostKey /etc/ssh/ssh_host_ecdsa_key
-HostKey /etc/ssh/ssh_host_ed25519_key
-
-# Ciphers and keying
-#RekeyLimit default none
-
-# Logging
-#SyslogFacility AUTH
-LogLevel VERBOSE
-
-# Authentication:
-
-LoginGraceTime 60
-# on proxmox we have not create a non root user
-# so this is not setup as recommended, recommended would be 'PermitRootLogin no'
-PermitRootLogin yes
-StrictModes yes
-MaxAuthTries 4
-MaxSessions 10
-
-PubkeyAuthentication yes
-
-# Expect .ssh/authorized_keys2 to be disregarded by default in future.
-AuthorizedKeysFile .ssh/authorized_keys
-
-#AuthorizedPrincipalsFile none
-
-#AuthorizedKeysCommand none
-#AuthorizedKeysCommandUser nobody
-
-# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts
-HostbasedAuthentication no
-# Change to yes if you don't trust ~/.ssh/known_hosts for
-# HostbasedAuthentication
-#IgnoreUserKnownHosts no
-# Don't read the user's ~/.rhosts and ~/.shosts files
-IgnoreRhosts yes
-
-# To disable tunneled clear text passwords, change to no here!
-PasswordAuthentication no
-PermitEmptyPasswords no
-
-# Change to yes to enable challenge-response passwords (beware issues with
-# some PAM modules and threads)
-KbdInteractiveAuthentication no
-
-# Kerberos options
-#KerberosAuthentication no
-#KerberosOrLocalPasswd yes
-#KerberosTicketCleanup yes
-#KerberosGetAFSToken no
-
-# GSSAPI options
-GSSAPIAuthentication no
-GSSAPICleanupCredentials yes
-#GSSAPIStrictAcceptorCheck yes
-#GSSAPIKeyExchange no
-
-# Set this to 'yes' to enable PAM authentication, account processing,
-# and session processing. If this is enabled, PAM authentication will
-# be allowed through the KbdInteractiveAuthentication and
-# PasswordAuthentication.  Depending on your PAM configuration,
-# PAM authentication via KbdInteractiveAuthentication may bypass
-# the setting of "PermitRootLogin without-password".
-# If you just want the PAM account and session checks to run without
-# PAM authentication, then enable this but set PasswordAuthentication
-# and KbdInteractiveAuthentication to 'no'.
-UsePAM yes
-
-AllowAgentForwarding yes
-AllowTcpForwarding no
-#GatewayPorts no
-X11Forwarding no
-#X11DisplayOffset 10
-#X11UseLocalhost yes
-#PermitTTY yes
-PrintMotd no
-#PrintLastLog yes
-#TCPKeepAlive yes
-PermitUserEnvironment no
-#Compression delayed
-ClientAliveInterval 15
-ClientAliveCountMax 3
-UseDNS no
-#PidFile /run/sshd.pid
-MaxStartups 10:30:60
-#PermitTunnel no
-#ChrootDirectory none
-#VersionAddendum none
-
-# no default banner path
-Banner /etc/issue.net
-
-# Allow client to pass locale environment variables
-AcceptEnv LANG LC_*
-
-# override default of no subsystems
-Subsystem sftp  /usr/lib/ssh/sftp-server -f AUTHPRIV -l INFO
-
-# Example of overriding settings on a per-user basis
-#Match User anoncvs
-#       X11Forwarding no
-#       AllowTcpForwarding no
-#       PermitTTY no
-#       ForceCommand cvs server
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
-MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
-KexAlgorithms curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
-HostKeyAlgorithms ssh-ed25519-cert-v01@openssh.com,ssh-rsa-cert-v01@openssh.com,ssh-ed25519,ssh-rsa,ecdsa-sha2-nistp521-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,ecdsa-sha2-nistp256
 AuthenticationMethods publickey
-PubkeyAcceptedKeyTypes ssh-ed25519
+StrictModes yes
+PubkeyAuthentication yes
+PasswordAuthentication no
 ChallengeResponseAuthentication no
+GSSAPICleanupCredentials yes
+AllowAgentForwarding no
+AllowTcpForwarding no
+TCPKeepAlive no
+UseDNS no
+AuthorizedKeysFile .ssh/authorized_keys
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_rsa_key
 ```
 
 restart the ssh service to ensuring that the modifications take effect:
@@ -509,194 +444,290 @@ open the file `/etc/sysctl.conf` and replace with following content:
 # See /etc/sysctl.d/ for additional system variables.
 # See sysctl.conf (5) for information.
 #
+# To apply changes: `sudo sysctl -p --system`
+#
 
 ###################################################################
-# ==> kernel
+# ==> Kernel Parameters
 
-# https://en.wikipedia.org/wiki/Syslog#Severity_levels
-# stop low-level messages on console
-kernel.printk=3 4 1 3
+# Control kernel logging to console (severity levels).
+# See: https://en.wikipedia.org/wiki/Syslog#Severity_levels
+# - CUR: Current message level (default: 3, "error").
+# - DEF: Default level for messages without a specified level.
+# - MIN: Minimum CUR level allowed.
+# - BTDEF: Boot-time default for CUR.
+# |     |               | CUR | DEF | MIN | BTDEF |
+# | :-- | :------------ | :-- | :-- | :-- | :---- |
+# | 0   | emergency     | x   | x   | x   | x     |
+# | 1   | alert         | x   | x   | x   | x     |
+# | 2   | critical      | x   | x   |     | x     |
+# | 3   | error         | x   | x   |     | x     |
+# | 4   | warning       |     | x   |     |       |
+# | 5   | notice        |     |     |     |       |
+# | 6   | informational |     |     |     |       |
+# | 7   | debug         |     |     |     |       |
+kernel.printk=3 4 1 7
 
-# Enable process address space protection
-# This makes it more difficult for an attacker to predict the location of key data structures in memory
+# Enable Address Space Layout Randomization (ASLR) for process memory.
+# Enhances security by making it more difficult for attackers to predict memory addresses.
 kernel.randomize_va_space=2
-# Disable core dumps
-# This prevents core dumps from being written to disk if a setuid program crashes
+# Restrict access to dmesg for non-root users, preventing potential leakage of sensitive system information.
+kernel.dmesg_restrict=1
+# Controls access to kernel pointer addresses in /proc files.
+# Restricting this prevents unauthorized users from reading kernel addresses.
+kernel.kptr_restrict=1
+
+# Disable core dumps for setuid programs to prevent sensitive data leaks.
 fs.suid_dumpable=0
 
+# Max inotify instances and watches per user (for applications that require more file monitoring).
 fs.inotify.max_user_instances=8192
-# Cache extend
 fs.inotify.max_user_watches=524288
 
-# limit the ability of a compromised process to PTRACE_ATTACH on other processes running under the same user
+# Restrict ptrace() debugging to parent processes only.
+# Prevents exploitation of ptrace by malicious processes.
 kernel.yama.ptrace_scope=1
 
 ###################################################################
-# Magic system request Key
-# 0=disable, 1=enable all, >1 bitmask of sysrq functions
+# ==> Magic SysRq Key Configuration
+
+# Enable SysRq key functions selectively.
 # See https://www.kernel.org/doc/html/latest/admin-guide/sysrq.html
-# for what other values do
+# - 0: Disable completely.
+# - 1: Enable all.
+# - 176: Allow only reboot, remount, kill, sync, etc.
+kernel.sysrq=176
 #kernel.sysrq=438
-kernel.sysrq=0
 
-# Background save may fail under low memory condition
+###################################################################
+# ==> Virtual Memory
+
+# Prevent null-pointer dereference attacks by restricting minimum address mappable via mmap().
+vm.mmap_min_addr=65536
+
+# Memory overcommit handling:
+# - 0: Default overcommit handling.
+# - 1: Always overcommit.
+# - 2: No overcommit beyond set ratio.
 vm.overcommit_memory=0
+# In case overcommit ratio needs to be manually set (in percent).
+#vm.overcommit_ratio=100
 
-# swapp set to 1, but not quite disabling it. Will prevent OOM killer from killing processes when running out of physical memory.
+# Set swappiness value. Lower values reduce swap usage and prefer keeping data in RAM.
 vm.swappiness=1
 
-# Enable Transparent Huge Pages (THP)
-vm.nr_hugepages=2048 #128
+# Transparent Huge Pages (THP) can be enabled for memory allocation efficiency if necessary.
+#vm.nr_hugepages=128
+vm.nr_hugepages=2048
 #vm.nr_hugepages_mempolicy=1
 
-# Adjust vfs cache
-# https://lonesysadmin.net/2013/12/22/better-linux-disk-caching-performance-vm-dirty_ratio/
-# Decriase dirty cache to faster flush on disk
+# Controls when dirty data (modified pages) is written to disk.
+# See https://lonesysadmin.net/2013/12/22/better-linux-disk-caching-performance-vm-dirty_ratio/
+# The `dirty_background_ratio` defines the threshold when background processes start flushing dirty pages.
+# The `dirty_ratio` is the maximum percentage of RAM that can be "dirty" before the system forces a write.
+# Example:
+# For a system with 64GB of RAM:
+# - dirty_background_ratio=5: Around 3.2GB will start flushing.
+# - dirty_ratio=10: Around 6.4GB can be dirty before a forced write.
+# Adjust these values depending on system load and disk performance requirements.
 #vm.dirty_background_ratio=5
 #vm.dirty_ratio=10
 
 ###################################################################
-# ==> network
+# ==> Networking (Functional Parameters)
 
-# Disable IPv6 usage complete, we do not need it internal
-# think about let it active on device which needs it
+# Disable IPv6 if not required.
+# Recommended for systems without IPv6 dependencies for security and performance reasons.
 net.ipv6.conf.all.disable_ipv6=1
 net.ipv6.conf.default.disable_ipv6=1
 net.ipv6.conf.lo.disable_ipv6=1
 
-# Do not send ICMP redirects (we are not a router)
+# Prevent sending ICMP redirects.
+# Improves security for non-router devices to avoid man-in-the-middle attacks.
 net.ipv4.conf.all.send_redirects=0
 net.ipv4.conf.default.send_redirects=0
 
-# Disable IP forwarding for IPv4 & IPv6
-# This prevents the system from forwarding packets between interfaces, which can help prevent man-in-the-middle attacks
+# Disable IP forwarding to prevent the system from routing packets, increasing security.
 net.ipv4.ip_forward=0
 net.ipv4.conf.all.forwarding=0
-#  Enabling this option disables Stateless Address Autoconfiguration
-#  based on Router Advertisements for this host
 net.ipv6.conf.all.forwarding=0
 
-# Do not accept IP source route packets (we are not a router)
-# This makes it more difficult for an attacker to control the path that packets take through the network
+# Disable source routing to protect against spoofing attacks, which can be used to bypass security mechanisms.
 net.ipv4.conf.all.accept_source_route=0
 net.ipv4.conf.default.accept_source_route=0
 net.ipv6.conf.all.accept_source_route=0
 net.ipv6.conf.default.accept_source_route=0
 
-# Do not accept ICMP redirects (prevent MITM attacks)
-# This makes it more difficult for an attacker to control the routing of packets on the network
+# Prevent acceptance of ICMP redirects, mitigating spoofing attacks.
 net.ipv4.conf.all.accept_redirects=0
 net.ipv4.conf.default.accept_redirects=0
 net.ipv6.conf.all.accept_redirects=0
 net.ipv6.conf.default.accept_redirects=0
 
-# Do not accept ICMP redirects only for gateways listed in our default
+# Do not accept ICMP redirects only for gateways listed in our default.
 net.ipv4.conf.all.secure_redirects=0
 net.ipv4.conf.default.secure_redirects=0
 
-# Log Martian Packets (disabled)
+# Log Martian Packets (better to have enabled for security, but can cause log spam).
 net.ipv4.conf.all.log_martians=0
 net.ipv4.conf.default.log_martians=0
 
-# Ignore bogus ICMP errors
+# Ignore broadcast ICMP pings and erroneous error responses to enhance security.
 net.ipv4.icmp_echo_ignore_broadcasts=1
 net.ipv4.icmp_ignore_bogus_error_responses=1
 net.ipv4.icmp_echo_ignore_all=0
 
-# Uncomment the next two lines to enable Spoof protection (reverse-path filter)
-# Turn on Source Address Verification in all interfaces to
-# prevent some spoofing attacks
+# Enable source address validation to prevent spoofing.
 net.ipv4.conf.all.rp_filter=1
 net.ipv4.conf.default.rp_filter=1
-net.ipv4.conf.lo.rp_filter=1
+net.ipv4.conf.lo.rp_filter=0
 
-# Enable TCP SYN cookie protection
-# This makes it more difficult for an attacker to perform a SYN flood attack
+# Enable TCP SYN cookies to mitigate SYN flood attacks.
 net.ipv4.tcp_syncookies=1
-# Enable the use of TCP selective acknowledgements
-# This allows the system to acknowledge only the packets that were received and improves performance
+
+# Enable TCP Selective Acknowledgements (SACK), improving throughput and robustness.
 net.ipv4.tcp_sack=1
 
-# Disable the ability to change the MTU
-# This makes it more difficult for an attacker to control the maximum transmission unit (MTU) of packets on the network
+# Disable Path MTU Discovery to reduce the risk of attackers manipulating MTU values.
 net.ipv4.ip_no_pmtu_disc=1
 
-# Disable TCP timestamps (RFC1323/RFC7323)
+# Disable TCP timestamps to improve security against timing-based attacks. (RFC1323/RFC7323)
 net.ipv4.tcp_timestamps=0
 
-# uncomment below to use, for this setup we let it enabled
-# Enable the use of TCP timestamps
-# This makes it more difficult for an attacker to perform a TCP spoofing attack
-#net.ipv4.tcp_timestamps=1
+# Protect Against TCP Time-Wait to mitigate DoS attack attempts.
+net.ipv4.tcp_rfc1337=1
 
-# Enable source address verification for IPv6
+# Enable temporary IPv6 addresses for better privacy (anonymizing address information).
+net.ipv6.conf.all.use_tempaddr=2
+net.ipv6.conf.default.use_tempaddr=2
+
+# Enable source address verification for IPv6.
 # This makes it more difficult for an attacker to spoof their IP address
 net.ipv6.conf.all.accept_ra=0
 net.ipv6.conf.default.accept_ra=0
 
+# Clear routing cache to ensure routing decisions are made based on up-to-date information.
 net.ipv4.route.flush=1
 net.ipv6.route.flush=1
 
-# allow testing with buffers up to 128MB (64MB)
-## Maximum receive socket buffer size
-net.core.rmem_max=134217728 #67108864
-## Maximum send socket buffer size
-net.core.wmem_max=134217728 #67108864
-
-# Maximum number of packets queued on the input side
-net.core.netdev_max_backlog=3000
-
-# Enable the use of TCP fast open
-# This allows the system to establish a TCP connection more quickly and improves performance
+# Enable TCP Fast Open for faster connections, enhancing performance for both clients and servers.
 # - 0: Disable TCP Fast Open (default if not explicitly set).
 # - 1: Enable TCP Fast Open for outgoing connections (clients).
 # - 2: Enable TCP Fast Open for incoming connections (servers).
 # - 3: Enable TCP Fast Open for both outgoing and incoming connections.
-#net.ipv4.tcp_fastopen=1
 net.ipv4.tcp_fastopen=3
 
-# Enable the use of TCP window scaling
-# increase Linux autotuning TCP buffer limit to 128MB (64MB)
-# This allows the system to handle large TCP window sizes and improves performance
+# Set congestion control algorithm for better throughput and latency.
+net.ipv4.tcp_congestion_control=bbr
+#net.ipv4.tcp_congestion_control=htcp
+#net.ipv4.tcp_congestion_control=cubic
+
+# Default queuing discipline (reduces latency under load).
+net.core.default_qdisc=fq_codel
+#net.core.default_qdisc=fq
+
+# Enable TCP window scaling for larger buffers, useful in high-bandwidth or high-latency networks.
+# Increase Linux autotuning TCP buffer limit to 128MB (64MB).
 net.ipv4.tcp_window_scaling=3
-## Minimum, initial and max TCP Receive buffer size in Bytes
-net.ipv4.tcp_rmem=4096 87380 134217728 #67108864
-## Minimum, initial and max buffer space allocated
-net.ipv4.tcp_wmem=4096 87380 134217728 #67108864
 
-net.ipv4.tcp_congestion_control=bbr #bbr|cubic
-
-# recommended for hosts with jumbo frames enabled
+# Enable MTU Probing (recommended for hosts with jumbo frames enabled).
 net.ipv4.tcp_mtu_probing=1
 
-# recommended to enable 'fair queueing'
-net.core.default_qdisc=fq
-
-# Auto tuning
+# Enable auto-tuning of the receive buffer size for better performance in high-throughput networks.
 net.ipv4.tcp_moderate_rcvbuf=1
-# Don't cache ssthresh from previous connection
+
+# Don't cache the slow start threshold from previous connections for more consistent performance.
 net.ipv4.tcp_no_metrics_save=1
 
+# Enable low-latency TCP connections for time-sensitive applications.
 net.ipv4.tcp_low_latency=1
 
-vm.max_map_count=1048576
-
-# Netfilter should be turned off on bridge devices
+# Disable netfilter on bridge devices for improved performance in virtualized environments.
 net.bridge.bridge-nf-call-iptables=0
 net.bridge.bridge-nf-call-arptables=0
 net.bridge.bridge-nf-call-ip6tables=0
 
-# ###################################################################
-fs.file-max=2097152 #262144
-net.core.somaxconn=65535 #4096
-net.ipv4.tcp_max_syn_backlog=4096
-net.ipv4.tcp_mem=4194304 4194304 4194304
-net.core.rps_sock_flow_entries=32768
+# IPv6 Privacy Extensions (RFC 4941)
+# ---
+# IPv6 typically uses a device's MAC address when choosing an IPv6 address
+# to use in autoconfiguration. Privacy extensions allow using a randomly
+# generated IPv6 address, which increases privacy.
+#
+# Acceptable values:
+#    0 - don’t use privacy extensions.
+#    1 - generate privacy addresses
+#    2 - prefer privacy addresses and use them over the normal addresses.
+net.ipv6.conf.all.use_tempaddr=2
+net.ipv6.conf.default.use_tempaddr=2
+
+# Set preferred lifetime to 1 hour (time before a new address is preferred)
+# Backuped optional values: 86400 (24h)
+net.ipv6.conf.all.temp_prefered_lft=3600
+net.ipv6.conf.default.temp_prefered_lft=3600
+# Set valid lifetime to 2 hours (time before the old address is invalidated)
+# Backuped optional values: 604800 (168h)
+net.ipv6.conf.all.temp_valid_lft=7200
+net.ipv6.conf.default.temp_valid_lft=7200
+
+###################################################################
+# ==> Networking (Performance Parameters)
+
+# Increase maximum receive/send socket buffer sizes for handling large data streams.
+# Backuped optional values: 212992 | 67108864 | 134217728
+net.core.rmem_max=134217728
+net.core.wmem_max=134217728
+
+# Increase input queue size for better handling of high traffic volumes.
+# Backuped optional values: 1000 | 3000
+#net.core.netdev_max_backlog=1000
+
+# Increase maximum number of pending connections to support high traffic loads.
+# Backuped optional values: 4096 | 65535
+#net.core.somaxconn=4096
+
+# Number of flow entries for Receive Packet Steering (RPS).
+# Backuped optional values: 0 | 32768
+#net.core.rps_sock_flow_entries=32768
+
+# Optimize TCP buffers for high throughput connections (low, pressure, high).
+# Backuped optional values: 4096 131072 6291456 | 4096 87380 67108864 | 4096 87380 134217728
+#net.ipv4.tcp_rmem=4096 87380 134217728
+# Backuped optional values: 4096 16384 4194304 | 4096 87380 67108864 | 4096 87380 134217728
+#net.ipv4.tcp_wmem=4096 87380 134217728
+
+# Maximum number of queued SYN requests, higher values prevent SYN flood attacks.
+# Backuped optional values: 512 | 4096
+#net.ipv4.tcp_max_syn_backlog=4096
+
+# Define memory pressure thresholds for TCP memory management (low, pressure, high).
+# Backuped optional values: 93222 124299 186444 | 4194304 4194304 4194304 | 8388608 12582912 16777216
+#net.ipv4.tcp_mem=8388608 12582912 16777216
+
+###################################################################
+# ==> Filesystem Parameters
+
+# Increase maximum number of open file descriptors system-wide, supporting applications with many files open.
+# Backuped optional values: 2097152 | 262144 | 4194304 | 9223372036854775807
+fs.file-max=9223372036854775807
+
+# Increase maximum virtual memory map count for applications using large amounts of virtual memory.
+vm.max_map_count=1048576
+
+###################################################################
+# Notes and Optional Settings
 
 # ###################################################################
-# check below if to use instead - if you have performance penalties
-#net.ipv4.tcp_timestamps=1
-#net.ipv4.ip_no_pmtu_disc=0
+# Enabling TCP Timestamps and PMTU Discovery can improve certain network performance metrics
+# but may expose systems to specific types of attacks:
+net.ipv4.tcp_timestamps=1
+net.ipv4.ip_no_pmtu_disc=0
+net.ipv4.tcp_fastopen=1
+
+# ###################################################################
+# If IPv6 is required, enable it with the following settings
+net.ipv6.conf.all.disable_ipv6=0
+net.ipv6.conf.default.disable_ipv6=0
+net.ipv6.conf.lo.disable_ipv6=0
 ```
 
 run following command to perform the changes:
@@ -776,17 +807,20 @@ $nano /etc/default/grub
 
 locate the line starting with `GRUB_CMDLINE_LINUX_DEFAULT` and modify it as follows:
 
+TODO: `consoleblank=0 systemd.show_status=true console=tty1 console=ttyS0`
+
 ```properties
-GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=force_enable iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4"
 
 # (optional GPU) extend for better GPU support with:
-GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=force_enable iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4 amdgpu.sg_display=0 pcie_acs_override=downstream,multifunction initcall_blacklist=sysfb_init"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4 amdgpu.sg_display=0 pcie_acs_override=downstream,multifunction initcall_blacklist=sysfb_init"
 ```
 
 update the changes:
 
 ```sh
-$update-grub
+#$update-grub
+$proxmox-boot-tool refresh
 ```
 
 verify the changes written correct and exist after restart:
@@ -802,10 +836,10 @@ edit the kernel command line by running the following command:
 > _Note: Before running the command, verify the first information `root=ZFS=rpool/ROOT/pve-1 boot=zfs` and update it if necessary._
 
 ```sh
-$echo 'root=ZFS=rpool/ROOT/pve-1 boot=zfs quiet amd_iommu=force_enable iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4' > /etc/kernel/cmdline
+$echo 'root=ZFS=rpool/ROOT/pve-1 boot=zfs quiet amd_iommu=on iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4' > /etc/kernel/cmdline
 
 # (optional GPU) extend for better GPU support with:
-$echo 'root=ZFS=rpool/ROOT/pve-1 boot=zfs quiet amd_iommu=force_enable iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4 amdgpu.sg_display=0 pcie_acs_override=downstream,multifunction initcall_blacklist=sysfb_init' > /etc/kernel/cmdline
+$echo 'root=ZFS=rpool/ROOT/pve-1 boot=zfs quiet amd_iommu=on iommu=pt amd_pstate=passive amd_pstate.shared_mem=1 cpufreq.default_governor=schedutil processor.max_cstate=4 amdgpu.sg_display=0 pcie_acs_override=downstream,multifunction initcall_blacklist=sysfb_init' > /etc/kernel/cmdline
 ```
 
 update the changes:
@@ -825,7 +859,7 @@ $cat /proc/cmdline
 | Topic                             | Key                        | Good Value                          | Optional Value                | Purpose                                                                   |
 | :-------------------------------- | :------------------------- | :---------------------------------- | :---------------------------- | :------------------------------------------------------------------------ |
 | **AMD-Specific Tweaks**           |                            |                                     |                               |                                                                           |
-|                                   | `amd_iommu`                | `force_enable`                      | `on`                          | Enables AMD-Vi (IOMMU) for PCI passthrough (required for GPU/VFIO).       |
+|                                   | `amd_iommu`                | `on`                                | `force_enable`                | Enables AMD-Vi (IOMMU) for PCI passthrough (required for GPU/VFIO).       |
 |                                   | `amd_pstate`               | `passive`                           | `active` (if kernel supports) | Uses AMD's P-State driver for dynamic CPU scaling (Zen 3/4+).             |
 |                                   | `amd_pstate.shared_mem`    | `1`                                 | -                             | Enables shared memory mode for Zen 4 CPUs.                                |
 |                                   | `amdgpu.sg_display`        | `0`                                 | `1` (default)                 | Disables scatter-gather display for APUs to fix flickering/artifacts.     |
@@ -848,21 +882,21 @@ $cat /proc/cmdline
 | **Legacy/Intel (Ignore for AMD)** |                            |                                     |                               |                                                                           |
 |                                   | `intel_pstate`             | `disable`                           | -                             | Disables Intel's P-State driver (irrelevant for AMD CPUs).                |
 
-##### Extended Descriptions `amd_iommu`:
+Extended Descriptions `amd_iommu`:
 
 - **Purpose**: Enables AMD's **IOMMU** (Input-Output Memory Management Unit), a hardware feature required for PCI passthrough.
 - **Details**:
   - `force_enable` overrides BIOS settings if IOMMU is disabled.
   - Required for GPU passthrough (e.g., assigning an AMD GPU to a VM).
 
-##### Extended Descriptions `iommu`:
+Extended Descriptions `iommu`:
 
 - **Purpose**: Configures IOMMU behavior.
 - **Details**:
   - `pt` (passthrough mode) isolates devices into separate IOMMU groups for direct VM assignment.
   - `on` enables full IOMMU but may group devices together (less flexible).
 
-##### Extended Descriptions `pcie_acs_override`:
+Extended Descriptions `pcie_acs_override`:
 
 - **Purpose**: Bypasses PCIe ACS checks for passthrough.
 - **Details**:
@@ -870,25 +904,25 @@ $cat /proc/cmdline
   - `downstream`: Targets devices behind PCIe switches.
   - `multifunction`: Splits multi-function devices (e.g., dual NICs).
 
-##### Extended Descriptions `nofb`:
+Extended Descriptions `nofb`:
 
 - **Purpose**: Disables framebuffer to resolve GPU conflicts.
 - **Details**:
   - Useful if the host OS interferes with GPU passthrough (e.g., error `vfio-pci: Cannot reset device`).
 
-##### Extended Descriptions `nomodeset`:
+Extended Descriptions `nomodeset`:
 
 - **Purpose**: Prevents the kernel from initializing GPU drivers.
 - **Details**:
   - Forces the system to use basic video modes (helpful for debugging passthrough).
 
-##### Extended Descriptions `initcall_blacklist`:
+Extended Descriptions `initcall_blacklist`:
 
 - **Purpose**: Skips problematic kernel functions during boot.
 - **Details**:
   - `sysfb_init`: Fixes conflicts when AMD GPUs and firmware framebuffers clash.
 
-##### Extended Descriptions `default_hugepagesz` / `hugepagesz` / `hugepages`:
+Extended Descriptions `default_hugepagesz` / `hugepagesz` / `hugepages`:
 
 - **Purpose**: Optimizes memory for VMs.
 - **Details**:
@@ -897,27 +931,27 @@ $cat /proc/cmdline
   - Allocate `hugepages` **before** starting VMs to avoid host OOM errors.
   - Verify with `cat /proc/meminfo | grep HugePages`
 
-##### Extended Descriptions `amdgpu.sg_display`:
+Extended Descriptions `amdgpu.sg_display`:
 
 - **Purpose**: Fixes APU display issues.
 - **Details**:
   - `0` disables scatter-gather display (fixes flickering on APUs like Ryzen 5xxxG/7xxxG).
 
-##### Extended Descriptions `amd_pstate`:
+Extended Descriptions `amd_pstate`:
 
 - **Purpose**: AMD's CPU frequency scaling driver.
 - **Details**:
   - `passive`: Balances power and performance (uses CPPC for Zen 3/4).
   - `active`: Aggressive scaling (requires kernel ≥6.3).
 
-##### Extended Descriptions `cpufreq.default_governor`:
+Extended Descriptions `cpufreq.default_governor`:
 
 - **Purpose**: Controls the selection of CPU idle states (C-states) to balance power saving and performance.
 - **Details**:
   - `performance`: Locks CPU at max frequency (best for VMs).
   - `schedutil`: Balances performance/power using kernel scheduler hints (modern alternative to `ondemand`).
 
-##### Extended Descriptions `cpuidle.governor`:
+Extended Descriptions `cpuidle.governor`:
 
 - **Purpose**: Controls how the CPU selects idle states (C-states) to balance power saving and performance.
 - **Details**:
@@ -928,7 +962,7 @@ $cat /proc/cmdline
   - Check current governor `cat /sys/devices/system/cpu/cpuidle/current_governor`
   - List available governors `cat /sys/devices/system/cpu/cpuidle/available_governors`
 
-##### Extended Descriptions `processor.max_cstate`:
+Extended Descriptions `processor.max_cstate`:
 
 - **Purpose**: Limits the deepest CPU idle state to reduce latency and minimize VM stuttering.
 - **Details**:
@@ -951,16 +985,11 @@ $cat /proc/cmdline
 > > - vfio_iommu_type1:
 > >   - This module enables the VFIO IOMMU (Input-Output Memory Management Unit) driver, allowing the virtual
 > >     machines to directly access hardware resources.
-> > - vfio_virqfd:
-> >   - This module is responsible for handling interrupts from the virtual machines using VFIO, allowing efficient
-> >     interrupt processing and reducing latency.
-> >   - NOTE: not available in newer kernel versions (below commented out)
 
 ```sh
 $echo 'vfio' > /etc/modules
 $echo 'vfio_pci' >> /etc/modules
 $echo 'vfio_iommu_type1' >> /etc/modules
-#$echo 'vfio_virqfd' >> /etc/modules
 ```
 
 ### // Setup pve-blacklist.conf
@@ -1018,37 +1047,56 @@ $echo 'softdep snd_hda_intel pre: vfio-pci' >> /etc/modprobe.d/softdep.conf
 $echo 'softdep xhci_hcd pre: vfio-pci' >> /etc/modprobe.d/softdep.conf
 ```
 
-### // Setup vfio.conf
+### // Setup vfio modprobe :: GPU
 
-> These steps allow the vfio-pci module to bind to the specified GPU and GPU-AUDIO devices,
-> disabling VGA output. This configuration is useful for GPU passthrough and can improve
-> performance for virtual machines utilizing the GPUs.
+To passthrough a GPU to a virtual machine, the device must not be used by the Proxmox host.  
+This can be achieved by binding the GPU and its audio device to the `vfio-pci` driver during boot.  
+Once configured, the GPU is hidden from the host system and becomes available for passthrough.
 
-#### Identify GPU Information
-
-execute the following command to **find** your **GPUs**:
-
-> _note down the GPU address, such as "2b:00.0" (excluding the ".0" at the end)_
+List all GPU devices and identify the one to be assigned to a VM.  
+Record the PCI address (e.g. `2b:00.0`). For later use, only the part before the dot is required (`2b:00`):
 
 ```sh
 $lspci | grep -iE "VGA"
 ```
 
-use the following command to **retrieve** the **GPU** and **GPU-AUDIO** info required for the configuration file.:
+Display detailed information about the selected device, including its related audio function.  
+**Replace `2b:00`** with the PCI address **obtained above**.  
+In the output, the **PCI IDs** are shown inside **latest square brackets** `[vendor:device]`.  
+Record both the **GPU and audio PCI IDs**, for example:
 
-> _replace `<GPU>` and `<AUDIO>` in the next step with the respective values_
+- GPU: `10de:1b81`
+- Audio: `10de:10f0`
 
 ```sh
-$lspci -n -s 2b:00 | awk '{ print $3 }'
+$lspci -nn -s 2b:00
 ```
 
-#### create vfio.conf
-
-> _replace `<GPU>` and `<AUDIO>` with the **GPU** and **GPU-AUDIO** values **obtained earlier**._
+Create a configuration file for `modprobe` with the recorded **PCI IDs**.  
+Replace `<GPU>` and `<AUDIO>` with the recorded **PCI IDs**:
 
 ```sh
-$echo 'options vfio-pci ids=<GPU>,<AUDIO> disable_vga=1' \
->> /etc/modprobe.d/vfio.conf
+$echo 'options vfio-pci ids=<GPU>,<AUDIO> disable_vga=1' > /etc/modprobe.d/vfio-gpu.conf
+```
+
+### // Setup vfio modprobe :: SAS
+
+For passthrough of SAS controllers, the device must likewise be bound to the `vfio-pci` driver.  
+This prevents the host from initializing it and makes it available for a virtual machine.
+
+List all SAS controllers and identify the one to be assigned to a VM.  
+The required **PCI ID** is shown inside **latest square brackets** `[vendor:device]`.  
+Example output may include `1000:0097` for an LSI controller:
+
+```sh
+$lspci -nn | grep -iE "SAS"
+```
+
+Create a configuration file for `modprobe` with the recorded **PCI ID**.  
+Replace `<PCI_ID>` with the recorded **PCI ID**:
+
+```sh
+$echo 'options vfio-pci ids=<PCI_ID>' > /etc/modprobe.d/vfio-sas.conf
 ```
 
 ### // Update and Reboot
@@ -1321,6 +1369,17 @@ add **disk** to **vm**:
 
 ```sh
 $qm set <VM-ID> -scsi<NUMBER> /dev/disk/by-id/<DISK-ID/UUID>
+```
+
+---
+
+## \\\\ TODO later
+
+### Base firewall rules
+
+```sh
+pvesh create cluster/firewall/rules --type in --action ACCEPT --proto tcp --dport 8006 --log nolog --enable 0
+pvesh create cluster/firewall/rules --type in --action ACCEPT --proto tcp --dport 22 --log nolog --enable 0
 ```
 
 ---
