@@ -132,6 +132,35 @@ Adjust log retention and log level as needed. The defaults are usually sufficien
 
 ![Logging Settings System](/assets/img/posts/opnsense/Logging_Settings_System_1683907923484_0.png)
 
+#### Tunables
+
+| Key                               | Value       | Description                                                             |
+| :-------------------------------- | :---------- | :---------------------------------------------------------------------- |
+| `hw.ibrs_disable`                 | `1`         | Disable Indirect Branch Restricted Speculation                          |
+| `net.isr.maxthreads`              | `-1`        | Use at most this many CPUs for netisr processing                        |
+| `net.isr.bindthreads`             | `1`         | Bind netisr threads to CPUs                                             |
+| `net.isr.dispatch`                | `deferred`  | netisr dispatch policy                                                  |
+| `net.inet.rss.enabled`            | `1`         | RSS enabled                                                             |
+| `net.inet.rss.bits`               | `3`         | `<CORES>/4=<VALUE>` RSS bits                                            |
+| `kern.ipc.maxsockbuf`             | `614400000` | `614400000=100Gbps` `16777216=10Gbps` Maximum socket buffer size        |
+| `net.inet.tcp.recvbuf_max`        | `4194304`   | Max size of automatic receive buffer                                    |
+| `net.inet.tcp.recvspace`          | `65536`     | Initial receive socket buffer size                                      |
+| `net.inet.tcp.sendspace`          | `65536`     | Initial send socket buffer size                                         |
+| `net.inet.tcp.sendbuf_inc`        | `65536`     | Incrementor step size of automatic send buffer                          |
+| `net.inet.tcp.sendbuf_max`        | `4194304`   | Max size of automatic send buffer                                       |
+| `net.inet.tcp.soreceive_stream`   | `1`         | Using soreceive_stream for TCP sockets                                  |
+|                                   |             |                                                                         |
+| `net.inet.tcp.mssdflt`            | `1240`      | Default TCP Maximum Segment Size                                        |
+| `net.inet.tcp.abc_l_var`          | `52`        | Cap the max cwnd increment during slow-start to this number of segments |
+| `net.inet.tcp.minmss`             | `536`       | Minimum TCP Maximum Segment Size                                        |
+| `net.isr.defaultqlimit`           | `2048`      | Default netisr per-protocol, per-CPU queue limit if not set by protocol |
+|                                   |             |                                                                         |
+| `kern.random.fortuna.minpoolsize` | `128`       | Minimum pool size necessary to cause a reseed                           |
+|                                   |             |                                                                         |
+| `net.pf.source_nodes_hashsize`    | `1048576`   |                                                                         |
+|                                   |             |                                                                         |
+| `kern.hz`                         | `1000`      | Number of clock ticks per second (improve for shaper on vm's)           |
+
 ### // Trust > \*
 
 #### Authorities
@@ -594,18 +623,17 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 ### // Settings > Advanced
 
-| Section            | Key                  | Value                                                                                   |
-| :----------------- | :------------------- | :-------------------------------------------------------------------------------------- |
-| **Bogon Networks** | Update Frequency     | `Weekly`                                                                                |
-| **Logging**        | Default block        | _checked_                                                                               |
-|                    | Default pass         | _checked_                                                                               |
-|                    | Outbound NAT         | _checked_                                                                               |
-|                    | Bogon networks       | _checked_                                                                               |
-|                    | Private networks     | _checked_                                                                               |
-| **Miscellaneous**  | Disable anti-lockout | _checked_ (_Only when you created relevant firewall rules, else you will lock you out_) |
-|                    |                      |                                                                                         |
-|                    |                      |                                                                                         |
-|                    |                      |                                                                                         |
+| Section            | Key                   | Value                                                                                   |
+| :----------------- | :-------------------- | :-------------------------------------------------------------------------------------- |
+| **Bogon Networks** | Update Frequency      | `Weekly`                                                                                |
+| **Logging**        | Default block         | _checked_                                                                               |
+|                    | Default pass          | _checked_                                                                               |
+|                    | Outbound NAT          | _checked_                                                                               |
+|                    | Bogon networks        | _checked_                                                                               |
+|                    | Private networks      | _checked_                                                                               |
+| **Miscellaneous**  | Firewall Optimization | `conservative`                                                                          |
+|                    | Disable anti-lockout  | _checked_ (_Only when you created relevant firewall rules, else you will lock you out_) |
+|                    | Disable sshlockout    | _checked_ (_Only when you created relevant firewall rules, else you will lock you out_) |
 
 ## \\\\ Services > \*
 
@@ -1043,3 +1071,5 @@ Monit
   - <https://www.reddit.com/r/opnsense/comments/17fjbbw/opnsense_on_proxmox_10gb_network_woes/>{:target="\_blank"}
   - <https://forum.opnsense.org/index.php?topic=31830.0>{:target="\_blank"}
   - <https://forum.opnsense.org/index.php?topic=18754.150>{:target="\_blank"}
+  - <https://medium.com/@truvis.thornton/opnsense-firewall-configuration-performance-tuning-for-multi-gigabit-internet-and-better-speeds-in-cfc80c49c544>{:target="\_blank"}
+  - <https://docs.opnsense.org/manual/shaping.html>{:target="\_blank"}
