@@ -576,50 +576,54 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 ### // Shaper
 
-| direction          | config           | value                                            |
-| :----------------- | :--------------- | :----------------------------------------------- |
-| **down :: Pipes**  | Bandwidth        | `XY Mbit/s`                                      |
-|                    | Queue            | `2`                                              |
-|                    | Scheduler type   | `FlowQueue-CoDel`                                |
-|                    | (FQ-)CoDel ECN   | _checked_                                        |
-|                    | FQ-CoDel quantum | `300*(<Bandwidth>/100) = X` or `1514`            |
-|                    | Description      | `WAN-Download-Pipe`                              |
-| **down :: Queues** | Pipe             | `WAN-Download-Pipe`                              |
-|                    | Weight           | `100`                                            |
-|                    | mask             | `destination`                                    |
-|                    | (FQ-)CoDel ECN   | _checked_                                        |
-|                    | Description      | `WAN-Download-Queue`                             |
-| **down :: Rules**  | Sequence         | `2`                                              |
-|                    | Interface        | `00_WAN`                                         |
-|                    | Protocol         | `ip`                                             |
-|                    | Source           | `any`                                            |
-|                    | Src-port         | `any`                                            |
-|                    | Destination      | `any`                                            |
-|                    | Dst-port         | `any`                                            |
-|                    | Direction        | `in`                                             |
-|                    | Target           | `WAN-Download-Queue`                             |
-|                    | Description      | `WAN-Download-Rule`                              |
-| **up :: Pipes**    | Bandwidth        | `XY Mbit/s`                                      |
-|                    | Queue            | _empty_                                          |
-|                    | Scheduler type   | `FlowQueue-CoDel`                                |
-|                    | (FQ-)CoDel ECN   | _checked_                                        |
-|                    | FQ-CoDel quantum | `300*(<Bandwidth>/100) = X` or `1514` or _empty_ |
-|                    | Description      | `WAN-Upload-Pipe`                                |
-| **up :: Queues**   | Pipe             | `WAN-Upload-Pipe`                                |
-|                    | Weight           | `100`                                            |
-|                    | mask             | `source`                                         |
-|                    | (FQ-)CoDel ECN   | _checked_                                        |
-|                    | Description      | `WAN-Upload-Queue`                               |
-| **up :: Rules**    | Sequence         | `2`                                              |
-|                    | Interface        | `00_WAN`                                         |
-|                    | Protocol         | `ip`                                             |
-|                    | Source           | `any`                                            |
-|                    | Src-port         | `any`                                            |
-|                    | Destination      | `any`                                            |
-|                    | Dst-port         | `any`                                            |
-|                    | Direction        | `out`                                            |
-|                    | Target           | `WAN-Upload-Queue`                               |
-|                    | Description      | `WAN-Upload-Rule`                                |
+| direction          | config           | value                                                        |
+| :----------------- | :--------------- | :----------------------------------------------------------- |
+| **down :: Pipes**  | Bandwidth        | `XY Mbit/s`                                                  |
+|                    | Queue            | _empty_                                                      |
+|                    | Mask             | `none`                                                       |
+|                    | Scheduler type   | `FlowQueue-CoDel`                                            |
+|                    | (FQ-)CoDel ECN   | _checked_                                                    |
+|                    | FQ-CoDel quantum | `300*(<Bandwidth>/100) = X` or `1514` _(Default)_ or _empty_ |
+|                    | FQ-CoDel limit   | `1000`                                                       |
+|                    | Description      | `WAN-Download-Pipe`                                          |
+| **down :: Queues** | Pipe             | `WAN-Download-Pipe`                                          |
+|                    | Weight           | `100`                                                        |
+|                    | mask             | `none`                                                       |
+|                    | (FQ-)CoDel ECN   | _unchecked_                                                  |
+|                    | Description      | `WAN-Download-Queue`                                         |
+| **down :: Rules**  | Sequence         | `5`                                                          |
+|                    | Interface        | `00_WAN`                                                     |
+|                    | Protocol         | `ip`                                                         |
+|                    | Source           | `any`                                                        |
+|                    | Src-port         | `any`                                                        |
+|                    | Destination      | `any` or `192.168.0.0/16 2000::/3`                           |
+|                    | Dst-port         | `any`                                                        |
+|                    | Direction        | `in`                                                         |
+|                    | Target           | `WAN-Download-Queue`                                         |
+|                    | Description      | `WAN-Download-Rule`                                          |
+| **up :: Pipes**    | Bandwidth        | `XY Mbit/s`                                                  |
+|                    | Queue            | _empty_                                                      |
+|                    | Mask             | `none`                                                       |
+|                    | Scheduler type   | `FlowQueue-CoDel`                                            |
+|                    | (FQ-)CoDel ECN   | _checked_                                                    |
+|                    | FQ-CoDel quantum | `300*(<Bandwidth>/100) = X` or `1514`_(Default)_ or _empty_  |
+|                    | FQ-CoDel limit   | `1000`                                                       |
+|                    | Description      | `WAN-Upload-Pipe`                                            |
+| **up :: Queues**   | Pipe             | `WAN-Upload-Pipe`                                            |
+|                    | Weight           | `100`                                                        |
+|                    | mask             | `none`                                                       |
+|                    | (FQ-)CoDel ECN   | _unchecked_                                                  |
+|                    | Description      | `WAN-Upload-Queue`                                           |
+| **up :: Rules**    | Sequence         | `6`                                                          |
+|                    | Interface        | `00_WAN`                                                     |
+|                    | Protocol         | `ip`                                                         |
+|                    | Source           | `any` or `192.168.0.0/16 2000::/3`                           |
+|                    | Src-port         | `any`                                                        |
+|                    | Destination      | `any`                                                        |
+|                    | Dst-port         | `any`                                                        |
+|                    | Direction        | `out`                                                        |
+|                    | Target           | `WAN-Upload-Queue`                                           |
+|                    | Description      | `WAN-Upload-Rule`                                            |
 
 ### // Settings > Advanced
 
@@ -654,17 +658,17 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 | **DNS Query Forwarding**    | Query DNS servers sequentially               | _unchecked_                                        |
 |                             | Require domain                               | _unchecked_                                        |
 |                             | Do not forward to system defined DNS servers | _checked_                                          |
-|                             | Do not forward private reverse lookups       | _unchecked_                                        |
+|                             | Do not forward private reverse lookups       | _checked_                                          |
 | **DHCP**                    | DHCP FQDN                                    | _checked_                                          |
 |                             | DHCP default domain                          | _empty_                                            |
 |                             | DHCP local domain                            | _checked_                                          |
-|                             | DHCP authoritative                           | _unchecked_                                        |
-|                             | DHCP reply delay                             | _unchecked_                                        |
+|                             | DHCP authoritative                           | _checked_                                          |
+|                             | DHCP reply delay                             | _empty_                                            |
 |                             | DHCP register firewall rules                 | _checked_                                          |
-|                             | Router advertisements                        | _unchecked_                                        |
+|                             | Router advertisements                        | _checked_                                          |
 |                             | Disable HA sync                              | _unchecked_                                        |
 | **ISC / KEA DHCP (legacy)** | Register ISC DHCP4 leases                    | _unchecked_                                        |
-|                             | DHCP domain override                         | _unchecked_                                        |
+|                             | DHCP domain override                         | _empty_                                            |
 |                             | Register DHCP static mappings                | _unchecked_                                        |
 |                             | Prefer DHCP                                  | _unchecked_                                        |
 
