@@ -75,15 +75,16 @@ advanced security capabilities to protect against modern cyber threats.
 > Recommended plugins for a secure and manageable OPNsense setup.  
 > {: .prompt-info }
 
-- **[ZenArmor (formerly Sensei)](#-zenarmor--):**
+- **[ZenArmor (formerly Sensei)](#-zenarmor--) `[RECOMMENDED]`** - Next-Generation Firewall
   - **os-sensei**
   - **os-sensei-updater**
   - **os-sunnyvalley**
-- **[os-ddclient](#-dynamic-dns)** - Dynamic DNS support.
-- **[os-acme-client](#-acme)** - Recommended for valid TLS certificates.
-- **os-net-snmp** - For SNMP monitoring.
-- **os-qemu-guest-agent** - For Proxmox/VM integration.
-- **[os-theme-vicuna](#general)** - Dark mode theme.
+- **os-q-feeds-connector `[RECOMMENDED]`** - Threat-Intel
+- **[os-acme-client](#-acme) `[RECOMMENDED]`** - Valid TLS-Certificates.
+- **[os-ddclient](#-dynamic-dns) `[OPTIONAL]`** - Dynamic DNS support.
+- **os-qemu-guest-agent `[OPTIONAL]`** - For Proxmox/VM integration.
+- **os-net-snmp `[OPTIONAL]`** - SNMP-Monitoring.
+- **[os-theme-vicuna](#general) `[OPTIONAL]`** - Dark mode theme.
   > **!!!** Highly recommended to install for dark mode, **bugs love light** **!!!**  
   > {: .prompt-danger }
 
@@ -203,376 +204,99 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 ### // Aliases > Aliases
 
-- Type: **Host(s)**
-  - IP_S_DNS_NTP_INTERN
-    - Content: **`192.168.1.1,fd00:affe:affe:1::1`**
-      > Example IPs for default DNS and NTP used in this documentation and allowed internal rules.
-    - Statistics: **_checked_**
-    - Description: **IP: service internal DNS+NTP (IPv4+IPv6)**
-  - IP_S_MDNS_SSDP
-    - Content: **`ff02::fb,224.0.0.251,239.255.255.250`**
-    - Statistics: **_checked_**
-    - Description: **IP: mDNS and SSDP hosts**
-- Type: **Network(s)**
-  - SUB_MULTI_BROAD
-    - Content: **`ff00::/8,224.0.0.0/4,255.255.255.255,ff02::1,ff02::c,ff02::fb,ff02::1:2`**
-    - Statistics: **_checked_**
-    - Description: **SUB: multicast + broadcast (IPv4+IPv6)**
-  - SUB_PRIV4
-    - Content: **`10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`**
-    - Statistics: **_checked_**
-    - Description: **SUB: RFC1918 IPv4 private net**
-  - SUB_PRIV6
-    - Content: **`fd00:affe:affe:0::0/48`**
-      > Example IPv6 ULA, adjust to your own range.
-    - Statistics: **_checked_**
-    - Description: **SUB: RFC4193 IPv6 ULA**
-  - SUB_PRIV_BOGON
-    - Content: **`10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,224.0.0.0/4,255.255.255.255,fe80::/10,::1/128,ff00::/8,fc00::/7,ff02::1,ff02::2,2001:db8::/32,::/128,2002::/16,3ffe::/16`**
-    - Statistics: **_checked_**
-    - Description: **SUB: RFC1918+Bogon+Local+Multicast+Additional**
-  - SUB_LINK_LOCAL6
-    - Content: **`fe80::/10`**
-    - Statistics: **_checked_**
-    - Description: **SUB: IPv6 link local**
-  - SUB_SITE_MC
-    - Content: **`239.254.0.0/16`**
-    - Statistics: **_checked_**
-    - Description: **SUB: site-local multicast (RFC2365)**
-  - SUB_GLOBAL6
-    - Content: **`2000::/3`**
-    - Statistics: **_checked_**
-    - Description: **SUB: IPv6 global unicast**
-  - SUB_ULA6
-    - Content: **`fd00::/8`**
-    - Statistics: **_checked_**
-    - Description: **SUB: IPv6 unique local address**
-- Type: **URL Table (IPs)**
-  - URL_BLOCKLIST
-    - Content: **`https://ipv64.net/blocklists/ipv64_blocklist_all.txt`**
-    - Statistics: **_checked_**
-- Type: **Port(s)**
-  - PORT_DNS_BLOCK
-    - Content: **`53,853,2853,5355,9953`**
-    - Description: **PORT: DNS block ports**
-  - PORT_LB_NOLOG
-    - Content: **`53,2055,9200`**
-    - Description: **PORT: loopback no-log**
-  - PORT_S_MDNS
-    - Content: **`5353,5540`**
-    - Description: **PORT: mDNS (IoT/Thread)**
-  - PORT_S_SIP
-    - Content: **`3478,3479,5060,7078:7109,10000:30000`**
-    - Description: **PORT: SIP service**
+| Type                | Name                       | Content                                                                                                                                                                                       | Description                                                                          | Statistics    | Refresh Frequency |
+| ------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------- | ----------------- |
+| **Host(s)**         |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | IP_S_DNS_NTP_INTERN        | `192.168.1.1, fd00:affe:affe:1::1`                                                                                                                                                            | IP: service internal DNS+NTP (IPv4+IPv6)                                             | **_checked_** |                   |
+|                     | IP_S_MDNS_SSDP             | `ff02::fb, 224.0.0.251, 239.255.255.250`                                                                                                                                                      | IP: MDNS and SSDP hosts                                                              | **_checked_** |                   |
+|                     | IP_S_PUBLIC_DNS            | `1.1.1.1, 8.8.8.8, 101.101.101.101`                                                                                                                                                           | IP: default public DNS servers                                                       | **_checked_** |                   |
+| **Network(s)**      |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | SUB_PRIV4                  | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16`                                                                                                                                                   | SUB: RFC1918 IPv4 private net                                                        | **_checked_** |                   |
+|                     | SUB_SITE_MC                | `239.254.0.0/16`                                                                                                                                                                              | SUB: site-local multicast (RFC2365)                                                  | **_checked_** |                   |
+|                     | SUB_PRIV_BOGON             | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 224.0.0.0/4, 255.255.255.255, fe80::/10, ::1/128, ff00::/8, fc00::/7, ff02::1, ff02::2, 2001:db8::/32, ::/128, 2002::/16, 3ffe::/16` | SUB: RFC1918 + Bogon + Local + Multicast + Additional (Unspecified, 6to4, Old 6bone) | **_checked_** |                   |
+|                     | SUB_PRIV6                  | `fd00:affe:affe:0::0/48`                                                                                                                                                                      | SUB: RFC4193 IPv6 ULA                                                                | **_checked_** |                   |
+|                     | SUB_MULTI_BROAD            | `ff00::/8, 224.0.0.0/4, 255.255.255.255, ff02::1, ff02::c, ff02::fb, ff02::1:2`                                                                                                               | SUB: multicast + broadcast (IPv4+IPv6)                                               | **_checked_** |                   |
+|                     | SUB_GLOBAL6                | `2000::/3`                                                                                                                                                                                    | SUB: IPv6 global unicast                                                             | **_checked_** |                   |
+|                     | SUB_RFC1918_IPV6_RIPE_2A00 | `2a00::/16`                                                                                                                                                                                   | SUB: RFC 1918 IPv6 - RIPE '2a00:' block                                              | **_checked_** |                   |
+|                     | SUB_ULA6                   | `fd00::/8`                                                                                                                                                                                    | SUB: IPv6 unique local address                                                       | **_checked_** |                   |
+|                     | SUB_LINK_LOCAL6            | `fe80::/10`                                                                                                                                                                                   | SUB: IPv6 link local                                                                 | **_checked_** |                   |
+| **Port(s)**         |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | PORT_DNS_BLOCK             | `53, 853, 2853, 9953`                                                                                                                                                                         | PORT: DNS block ports (for outside connections)                                      |               |                   |
+| **URL Table (IPs)** |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | URL_BLOCK_LIST             | `https://ipv64.net/blocklists/ipv64_blocklist_all.txt`                                                                                                                                        |                                                                                      | **_checked_** | `1D 0H`           |
+| **GeoIP**           |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | GEO_BLOCK_BAD              | **_Choose regions you want block_**                                                                                                                                                           | GEO: block bad countries                                                             | **_checked_** |                   |
+|                     | GEO_ALLOW_VPN              | **_Choose regions you want allow_**                                                                                                                                                           | GEO: allow vpn access                                                                | **_checked_** |                   |
 
 ### // Groups
 
 > Create groups as needed, e.g. default public net access groups.
 
-- Name: **G_PUB_NET4_D**
-  - Description: **default public net access [IPv4]**
-  - Members: **_add interfaces which should have internet access_**
-  - Sequence: `5`
-  - (no) GUI groups: **_checked_**
-- Name: **G_PUB_NET6_D**
-  - Description: **default public net access [IPv6]**
-  - Members: **_add interfaces which should have internet access_**
-  - Sequence: `6`
-  - (no) GUI groups: **_checked_**
+| Name         | Sequence | (no) GUI groups | Members                                                | Description                      |
+| ------------ | -------- | --------------- | ------------------------------------------------------ | -------------------------------- |
+| G_PUB_NET4_D | `5`      | **_checked_**   | **_add interfaces which should have internet access_** | default public net access (IPv4) |
+| G_PUB_NET6_D | `6`      | **_checked_**   | **_add interfaces which should have internet access_** | default public net access (IPv6) |
 
-### // NAT > Port Forward
+### // NAT > Destination NAT
 
 > Forward NTP/DNS traffic to the firewall instead of blocking it.
 
-- Description: **PF:: forward NTP to local [IPv4]**
-  - Interface: **_select interfaces_**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **SUB_PRIV4**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **123**
-  - Redirect target IP: **IP_S_DNS_NTP_INTERN**
-  - Log: **_checked_**
-  - Filter rule association: **None**
-- Description: **PF:: forward NTP to local [IPv6]**
-  - Interface: **_select interfaces_**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **123**
-  - Redirect target IP: **IP_S_DNS_NTP_INTERN**
-  - Log: **_checked_**
-  - Filter rule association: **None**
-- Description: **PF:: forward DNS to local [IPv4]**
-  - Interface: **G_PUB_NET4_D**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **SUB_PRIV4**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **53**
-  - Redirect target IP: **IP_S_DNS_NTP_INTERN**
-  - Log: **_checked_**
-  - Filter rule association: **None**
-- Description: **PF:: forward DNS to local [IPv6]**
-  - Interface: **G_PUB_NET6_D**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **53**
-  - Redirect target IP: **IP_S_DNS_NTP_INTERN**
-  - Log: **_checked_**
-  - Filter rule association: **None**
+| Description                              | Interface               | Version | Protocol  | Invert Source   | Source      | Invert Destination | Destination           | Destination Port | Redirect target IP    | Redirect Target Port | Log           | Filter rule association |
+| ---------------------------------------- | ----------------------- | ------- | --------- | --------------- | ----------- | ------------------ | --------------------- | ---------------- | --------------------- | -------------------- | ------------- | ----------------------- |
+| PF:: forward NTP to local Service [IPv4] | **_select interfaces_** | `IPv4`  | `UDP`     | **_unchecked_** | `SUB_PRIV4` | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `123`            | `IP_S_DNS_NTP_INTERN` | `123`                | **_checked_** | `Manual`                |
+| PF:: forward NTP to local Service [IPv6] | **_select interfaces_** | `IPv6`  | `UDP`     | **_unchecked_** | **any**     | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `123`            | `IP_S_DNS_NTP_INTERN` | `123`                | **_checked_** | `Manual`                |
+| PF:: forward DNS to local Service [IPv4] | `G_PUB_NET4_D`          | `IPv4`  | `TCP/UDP` | **_unchecked_** | `SUB_PRIV4` | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `53`             | `IP_S_DNS_NTP_INTERN` | `53`                 | **_checked_** | `Manual`                |
+| PF:: forward DNS to local Service [IPv6] | `G_PUB_NET6_D`          | `IPv6`  | `TCP/UDP` | **_unchecked_** | **any**     | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `53`             | `IP_S_DNS_NTP_INTERN` | `53`                 | **_checked_** | `Manual`                |
 
 ### // Rules
 
 #### Floating
 
-- Description: **ALLOW:: F: NTP internal [IPv4+IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **SUB_PRIV4, SUB_PRIV6**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **123**
-  - Log: **_checked_**
-- Description: **ALLOW:: F: mDNS [IPv4+IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **SUB_PRIV4, SUB_PRIV6, SUB_LINK_LOCAL6**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **IP_S_MDNS_SSDP**
-  - Destination port range: **5353**
-  - Log: **_checked_**
-- Description: **ALLOW:: F: MLD internal [IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **ICMP**
-  - Source / Invert: **_unchecked_**
-  - Source: **fe80::/10**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **ff02::16/128**
-  - Log: **_checked_**
-- Description: **BLOCK:: F: DNS outside [IPv4+IPv6]**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **PORT_DNS_BLOCK**
-  - Log: **_checked_**
-- Description: **BLOCK:: F: no rule WAN [IPv4]**
-  - Action: **Block**
-  - Quick: **_unchecked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **any**
-  - Log: **_checked_**
-- Description: **BLOCK:: F: no rule local [IPv4]**
-  - Action: **Block**
-  - Quick: **_unchecked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **SUB_PRIV_BOGON, SUB_MULTI_BROAD**
-  - Log: **_checked_**
-- Description: **BLOCK:: F: no rule WAN [IPv6]**
-  - Action: **Block**
-  - Quick: **_unchecked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **any**
-  - Log: **_checked_**
-- Description: **BLOCK:: F: no rule local [IPv6]**
-  - Action: **Block**
-  - Quick: **_unchecked_**
-  - Interface: **none**
-  - Direction: **in**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **SUB_PRIV_BOGON, SUB_MULTI_BROAD, SUB_PRIV6**
-  - Log: **_checked_**
+| Description                                           | Interface  | Quick           | Action  | Direction | Version | Protocol  | Invert Source   | Source                                             | Invert Destination | Destination                                  | Destination Port | Log             |
+| ----------------------------------------------------- | ---------- | --------------- | ------- | --------- | ------- | --------- | --------------- | -------------------------------------------------- | ------------------ | -------------------------------------------- | ---------------- | --------------- |
+| BLOCK:: F: restrict access by bad block list (out)    | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `URL_BLOCK_LIST`                             | **any**          | **_checked_**   |
+| BLOCK:: F: restrict access by bad geo countries (out) | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `GEO_BLOCK_BAD`                              | **any**          | **_checked_**   |
+| BLOCK:: F: restrict access by qfeeds list (out)       | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `__qfeeds_malware_ip`                        | **any**          | **_checked_**   |
+| ALLOW:: F: NTP internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | **any** | `UDP`     | **_unchecked_** | `SUB_PRIV4, SUB_PRIV6, SUB_RFC1918_IPV6_RIPE_2A00` | **_unchecked_**    | `IP_S_DNS_NTP_INTERN`                        | `123`            | **_checked_**   |
+| ALLOW:: F: MLD internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | `IPv6`  | `ICMP`    | **_unchecked_** | `SUB_LINK_LOCAL6`                                  | **_unchecked_**    | `ff02::16/128`                               | **any**          | **_checked_**   |
+| BLOCK:: F: no rule wan [IPv4]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
+| BLOCK:: F: no rule local [IPv4]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD`            | **any**          | **_checked_**   |
+| BLOCK:: F: no rule wan [IPv6]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
+| BLOCK:: F: no rule local [IPv6]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD, SUB_PRIV6` | **any**          | **_checked_**   |
+| BLOCK:: F: DoT (flooding)                             | **_none_** | **_checked_**   | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | **any**                                      | `853`            | **_unchecked_** |
+| BLOCK:: F: IGMP access (flooding)                     | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `IGMP`    | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_MULTI_BROAD`                            | **any**          | **_unchecked_** |
+| BLOCK:: F: SSDP on port 1900 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `1900`           | **_unchecked_** |
+| BLOCK:: F: DDDP on port 9131 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `9131`           | **_unchecked_** |
+| BLOCK:: F: WS-Discovery on port 3702 (flooding)       | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `3702`           | **_unchecked_** |
+| BLOCK:: F: MDNS on port 5353 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5353`           | **_unchecked_** |
+| BLOCK:: F: MDNS on port 5355 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5355`           | **_unchecked_** |
+| BLOCK:: F: NetBIOS on port 137-139 (flooding)         | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `137-139`        | **_unchecked_** |
 
 #### 00_WAN
 
-- Description: **BLOCK:: WAN: blocklist (in)**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **00_WAN**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **URL_BLOCKLIST**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **any**
-  - Log: **_checked_**
-- Description: **BLOCK:: WAN: no rule [IPv4]**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **00_WAN**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **any**
-  - Log: **_checked_**
-- Description: **BLOCK:: WAN: no rule [IPv6]**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **00_WAN**
-  - Direction: **in**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **any**
-  - Log: **_checked_**
+| Description                                            | Interface | Quick         | Action  | Direction | Version | Protocol | Invert Source   | Source                | Invert Destination | Destination | Destination Port | Log           |
+| ------------------------------------------------------ | --------- | ------------- | ------- | --------- | ------- | -------- | --------------- | --------------------- | ------------------ | ----------- | ---------------- | ------------- |
+| BLOCK:: WAN: restrict access by bad block list (in)    | `00_WAN`  | **_checked_** | `Block` | `in`      | **any** | **any**  | **_unchecked_** | `URL_BLOCK_LIST`      | **_unchecked_**    | **any**     | **any**          | **_checked_** |
+| BLOCK:: WAN: restrict access by bad geo countries (in) | `00_WAN`  | **_checked_** | `Block` | `in`      | **any** | **any**  | **_unchecked_** | `GEO_BLOCK_BAD`       | **_unchecked_**    | **any**     | **any**          | **_checked_** |
+| BLOCK:: WAN: restrict access by qfeeds list (in)       | `00_WAN`  | **_checked_** | `Block` | `in`      | **any** | **any**  | **_unchecked_** | `__qfeeds_malware_ip` | **_unchecked_**    | **any**     | **any**          | **_checked_** |
+| BLOCK:: WAN: no rule [IPv4]                            | `00_WAN`  | **_checked_** | `Block` | `in`      | `IPv4`  | **any**  | **_unchecked_** | **any**               | **_unchecked_**    | **any**     | **any**          | **_checked_** |
+| BLOCK:: WAN: no rule [IPv6]                            | `00_WAN`  | **_checked_** | `Block` | `in`      | `IPv6`  | **any**  | **_unchecked_** | **any**               | **_unchecked_**    | **any**     | **any**          | **_checked_** |
 
 #### G_PUB_NET4_D
 
-- Description: **BLOCK:: GPN4D: DNS outside [IPv4+IPv6]**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET4_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **PORT_DNS_BLOCK**
-  - Log: **_checked_**
-- Description: **ALLOW:: GPN4D: DNS inside [IPv4+IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET4_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **G_PUB_NET4_D net**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **53**
-  - Log: **_checked_**
-- Description: **ALLOW:: GPN4D: internet [IPv4]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET4_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **G_PUB_NET4_D net**
-  - Destination / Invert: **_checked_**
-  - Destination: **SUB_PRIV_BOGON**
-  - Log: **_checked_**
+| Description                              | Interface      | Quick         | Action  | Direction | Version | Protocol  | Invert Source   | Source         | Invert Destination | Destination           | Destination Port | Log           |
+| ---------------------------------------- | -------------- | ------------- | ------- | --------- | ------- | --------- | --------------- | -------------- | ------------------ | --------------------- | ---------------- | ------------- |
+| BLOCK:: GPN4D: DNS (outside) [IPv4+IPv6] | `G_PUB_NET4_D` | **_checked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | **any**        | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `PORT_DNS_BLOCK` | **_checked_** |
+| ALLOW:: GPN4D: DNS (inside) [IPv4+IPv6]  | `G_PUB_NET4_D` | **_checked_** | `Pass`  | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `G_PUB_NET4_D` | **_unchecked_**    | `IP_S_DNS_NTP_INTERN` | `53`             | **_checked_** |
+| ALLOW:: GPN4D: internet [IPv4]           | `G_PUB_NET4_D` | **_checked_** | `Pass`  | `in`      | `IPv4`  | **any**   | **_unchecked_** | `G_PUB_NET4_D` | **_checked_**      | `SUB_PRIV_BOGON`      | **any**          | **_checked_** |
 
 #### G_PUB_NET6_D
 
-- Description: **BLOCK:: GPN6D: DNS outside [IPv4+IPv6]**
-  - Action: **Block**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET6_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **any**
-  - Destination / Invert: **_checked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **PORT_DNS_BLOCK**
-  - Log: **_checked_**
-- Description: **ALLOW:: GPN6D: DNS inside [IPv4+IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET6_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv4+IPv6**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **G_PUB_NET6_D net**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **IP_S_DNS_NTP_INTERN**
-  - Destination port range: **53**
-  - Log: **_checked_**
-- Description: **ALLOW:: GPN6D: internet [IPv6]**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **G_PUB_NET6_D**
-  - Direction: **in**
-  - TCP/IP Version: **IPv6**
-  - Protocol: **any**
-  - Source / Invert: **_unchecked_**
-  - Source: **G_PUB_NET6_D net**
-  - Destination / Invert: **_checked_**
-  - Destination: **SUB_PRIV_BOGON**
-  - Log: **_checked_**
-
-#### LOOPBACK
-
-- Description: **ALLOW:: LB:: 9200**
-  - Action: **Pass**
-  - Quick: **_checked_**
-  - Interface: **Loopback**
-  - Direction: **out**
-  - TCP/IP Version: **IPv4**
-  - Protocol: **TCP/UDP**
-  - Source / Invert: **_unchecked_**
-  - Source: **127.0.0.1/32**
-  - Destination / Invert: **_unchecked_**
-  - Destination: **127.0.0.1/32**
-  - Destination port range: **PORT_LB_NOLOG**
-  - Log: **_unchecked_**
+| Description                              | Interface      | Quick         | Action  | Direction | Version | Protocol  | Invert Source   | Source         | Invert Destination | Destination           | Destination Port | Log           |
+| ---------------------------------------- | -------------- | ------------- | ------- | --------- | ------- | --------- | --------------- | -------------- | ------------------ | --------------------- | ---------------- | ------------- |
+| BLOCK:: GPN6D: DNS (outside) [IPv4+IPv6] | `G_PUB_NET6_D` | **_checked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | **any**        | **_checked_**      | `IP_S_DNS_NTP_INTERN` | `PORT_DNS_BLOCK` | **_checked_** |
+| ALLOW:: GPN6D: DNS (inside) [IPv4+IPv6]  | `G_PUB_NET6_D` | **_checked_** | `Pass`  | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `G_PUB_NET6_D` | **_unchecked_**    | `IP_S_DNS_NTP_INTERN` | `53`             | **_checked_** |
+| ALLOW:: GPN6D: internet [IPv6]           | `G_PUB_NET6_D` | **_checked_** | `Pass`  | `in`      | `IPv6`  | **any**   | **_unchecked_** | `G_PUB_NET6_D` | **_checked_**      | `SUB_PRIV_BOGON`      | **any**          | **_checked_** |
 
 ### // Shaper
 
