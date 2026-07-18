@@ -1,0 +1,38 @@
+---
+---
+
+@use 'abstracts/variables' with (
+  $theme: '{{ site.theme_mode }}'
+);
+
+/* prettier-ignore */
+@use 'main
+{%- if jekyll.environment == 'production' -%}
+  .bundle
+{%- endif -%}
+';
+
+/* append your custom style below */
+
+table {
+  min-width: 100% !important;
+}
+table td {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+table code {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+@media all and (min-width: 1650px) {
+  #main-wrapper > .container {
+    max-width: 1542px;
+    padding-left: 1.75rem !important;
+    padding-right: 1.75rem !important;
+  }
+}

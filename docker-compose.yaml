@@ -1,16 +1,103 @@
+---
+x-basic-deploy-labels: &basic-deploy-labels
+  labels:
+    - traefik.enable=true
+    - traefik.swarm.lbswarm=${LB_SWARM:-true}
+    - traefik.swarm.network=proxy
+    - traefik.http.routers.jekyll.entrypoints=${TRAEFIK_ENTRYPOINT:-https}
+    - traefik.http.routers.jekyll.rule=Host(`${DOMAIN?domain variable not set}`)
+    - traefik.http.routers.jekyll.tls=true
+    - traefik.http.routers.jekyll.tls.certresolver=${CERT_RESOLVER:-}
+    - traefik.http.routers.jekyll.middlewares=${MIDDLEWARE_SECURED:-default-secured@file}
+    - traefik.http.routers.jekyll.service=jekyll
+    - traefik.http.services.jekyll.loadbalancer.server.scheme=${PROTOCOL:-http}
+    - traefik.http.services.jekyll.loadbalancer.server.port=${PORT:-4000}
+
+x-basic-deploy: &basic-deploy
+  mode: replicated
+  replicas: 1
+  placement:
+    max_replicas_per_node: 1
+    constraints:
+      - "node.role==${NODE_ROLE:-manager}"
+      - node.platform.os == linux
+  update_config:
+    order: stop-first
+  restart_policy:
+    condition: any
+  resources:
+    limits:
+      cpus: ${RESOURCES_LIMITS_CPUS:-1}
+      memory: ${RESOURCES_LIMITS_MEMORY:-1g}
+    reservations:
+      cpus: ${RESOURCES_RESERVATIONS_CPUS:-0.001}
+      memory: ${RESOURCES_RESERVATIONS_MEMORY:-32m}
+
+x-basic: &basic # env_file: ${ENV_FILE:-.env}
+  cap_drop: ["ALL"]
+  security_opt:
+    - no-new-privileges:true
+  ulimits:
+    memlock:
+      soft: -1
+      hard: -1
+    nofile:
+      soft: 655360
+      hard: 655360
+    fsize: -1
+    as: -1
+  # mem_limit: ${RESOURCES_LIMITS_MEMORY:-1g}
+  networks:
+    # default: {}
+    proxy: {}
+  healthcheck:
+    disable: true
+  tmpfs:
+    - /tmp:rw,relatime,size=512m,nodev,nosuid,noexec
+  restart: always
+
+################################################################################
+################################################################################
+################################################################################
 services:
+  ##############################################################################
+  ##############################################################################
+  ##############################################################################
   jekyll:
-    image: bretfisher/jekyll
+    # https://hub.docker.com/r/bretfisher/jekyll
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: jekyll:local
+    <<:
+      - *basic
+      # - *basic-deploy-labels
+    deploy:
+      <<:
+        - *basic-deploy
+        - *basic-deploy-labels
     stdin_open: true
     tty: true
-    ports:
-      - 4000:4000
+    # ports:
+    #   - 4000:4000
     environment:
       JEKYLL_ENV: production
       JEKYLL_UID: 2000
       JEKYLL_GID: 3366
     volumes:
-      - $PWD:/srv/jekyll
-    working_dir: /srv/jekyll
-    entrypoint: bash
-    command: -c "bundle install && bundle exec jekyll s -l -H 0.0.0.0"
+      - $PWD:/site
+    # entrypoint: bash
+    # command: -c "bundle install && bundle exec jekyll s -l -H 0.0.0.0"
+
+################################################################################
+################################################################################
+################################################################################
+networks:
+  # default:
+  #   # internal: true
+  #   driver: ${NETWORK_MODE:-overlay}
+  #   attachable: true
+  #   driver_opts:
+  #     encrypted: "true"
+  proxy:
+    external: true
