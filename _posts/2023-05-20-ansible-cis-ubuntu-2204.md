@@ -17,32 +17,40 @@ image: /assets/img/headers/ubuntu.png
 
 ## \\\\ Description
 
-This entry provides step-by-step instructions for preparing Ansible to run the CIS role and apply CIS
-recommended hardening settings on Ubuntu systems. By following these instructions, system administrators
-can use Ansible to automate the hardening process and ensure that their Ubuntu systems are configured
-according to best practices for security and compliance. This documentation wiki blog is a useful resource
-for IT professionals who want to improve the security and performance of their Ubuntu systems using the
-CIS benchmark and Ansible automation.
+This entry shows how to run the **CIS Ubuntu Linux 22.04 LTS Benchmark v3.0.0**
+with the Ansible role
+[`ansible-cis-ubuntu-2204`](https://github.com/MVladislav/ansible-cis-ubuntu-2204).
+The role applies the benchmark's sections 1-7 and is designed for a **clean
+Ubuntu 22.04 install**.
+
+> _For **Ubuntu 24.04** use the sibling role
+> [`ansible-cis-ubuntu-2404`](https://github.com/MVladislav/ansible-cis-ubuntu-2404)
+> (CIS Ubuntu Linux 24.04 LTS Benchmark v1.0.0) - the variable prefix is
+> `cis_ubuntu2404_*`._
+>
+> _This is a **remediation** tool, not an audit tool. It changes SSH, PAM, mounts,
+> services, firewall and package state, so snapshot the VM and test in staging
+> before running it on a production host._
 
 ---
 
 ## \\\\ Information - CIS & Ubuntu
 
-CIS (Center for Internet Security) documentations are guidelines developed by cybersecurity
-experts to help organizations improve the security of their computer systems and networks.
-They provide recommendations for configuring systems and devices to mitigate
-cybersecurity risks and threats. By following these guidelines, organizations can
-improve their security, ensure consistency, comply with regulatory requirements, and save costs.
+CIS (Center for Internet Security) benchmarks are guidelines developed by
+cybersecurity experts to help organizations improve the security of their systems
+and networks. They provide recommendations for configuring systems and devices to
+mitigate cybersecurity risks and threats. By following these guidelines,
+organizations can improve their security, ensure consistency, comply with
+regulatory requirements, and save costs.
 
 The CIS Benchmarks provide detailed recommendations for configuring Ubuntu systems
-to mitigate common cybersecurity risks and threats. These recommendations cover
-a wide range of security topics, such as password policies, network settings,
-file system permissions, and user accounts.
+to mitigate common cybersecurity risks and threats. These recommendations cover a
+wide range of security topics, such as filesystem modules, mount options, network
+settings, logging, access control, authentication and user accounts.
 
-The CIS Benchmarks provide guidelines for hardening and securing Ubuntu operating systems.
-By implementing these guidelines, organizations can reduce the risk of cyber attacks and
-improve their security posture. This is important for protecting sensitive data and
-complying with regulations.
+By implementing these guidelines, organizations can reduce the risk of cyber
+attacks and improve their security posture. This is important for protecting
+sensitive data and complying with regulations.
 
 ---
 
@@ -56,54 +64,60 @@ complying with regulations.
 
 ## \\\\ Prepare - Target Systems
 
-- SSH access:
-  - Ansible communicates with the target systems over **SSH**,
-    so you need to have SSH access enabled on the target systems.
-- Python:
-  - Ansible requires Python to be installed on the target systems in order to execute its modules.
-    Most Linux distributions come with Python pre-installed, but if Python is not installed on the target systems,
-    you will need to install it before running Ansible.
-  - Recommended is to have **python3** installed.
-- Privilege escalation:
-  - Ansible require **root privileges** to perform certain tasks.
-    You will need to have a way to escalate privileges on the target systems, such as using `sudo` or `su`.
+- **SSH access:** Ansible communicates with the target systems over SSH, so SSH
+  must be reachable and you need a working login (key or password).
+- **Python:** Ansible requires Python 3 on the targets. Ubuntu ships it by
+  default; if it is missing, install `python3` before running the role.
+- **Privilege escalation:** the role needs root, so the SSH user must be able to
+  `sudo` (the playbook uses `become: true`).
+- **Clean host:** the role expects a fresh Ubuntu 22.04 install. Snapshot the VM
+  or test in a staging environment first.
 
 ## \\\\ Prepare - Host System
 
-install ansible on your main device, which you will use to setup devices:
+The role needs **Ansible >= 2.16** and **Python >= 3.12** on the controller. Use a
+virtual environment so the distribution's Python stays clean - Debian/Ubuntu
+block system-wide `pip` installs (PEP 668):
 
 ```sh
-$sudo apt install python3 python3-pip sshpass
+sudo apt install python3 python3-venv python3-pip sshpass
 
-# when python3 version >= "3.11" used
-$python3 -m pip install --break-system-packages ansible
-
-# when python3 version < "3.11" used
-$python3 -m pip install ansible
-
-# a quick fix for "ansible-galaxy collection install"
-# when python3 version >= "3.11" used
-$python3 -m pip install --break-system-packages -Iv "resolvelib<0.8.1"
-# when python3 version < "3.11" used
-$python3 -m pip install -Iv "resolvelib<0.8.1"
+python3 -m venv ~/.venvs/ansible
+source ~/.venvs/ansible/bin/activate
+python -m pip install --upgrade pip
+python -m pip install "ansible>=2.16" ansible-lint yamllint
+ansible --version
 ```
+
+> _`sshpass` is only needed when you log in with a password (`-k`). The linters
+> are optional, but the role repository uses them in CI._
 
 ## \\\\ Prepare - Ansible on Host System
 
 ### // clone the project
 
+Ansible looks for roles in a `roles/` directory next to the playbook, so clone the
+role there:
+
 ```sh
-$mkdir cis-hardening && cd cis-hardening
-$git clone https://github.com/MVladislav/ansible-cis-ubuntu-2204.git
+mkdir -p cis-hardening/roles
+cd cis-hardening
+git clone https://github.com/MVladislav/ansible-cis-ubuntu-2204.git roles/ansible-cis-ubuntu-2204
+```
+
+Install the collections the role needs:
+
+```sh
+ansible-galaxy collection install -r roles/ansible-cis-ubuntu-2204/requirements.yml
 ```
 
 ### // prepare your inventory
 
-```sh
-$nano inventory.yml
-```
+Create `inventory.yml` and change the host variables to your needs:
 
-> **change** the **host\*** variables to your needs
+```sh
+vim inventory.yml
+```
 
 ```yaml
 all:
@@ -116,30 +130,31 @@ all:
           ansible_ssh_private_key_file: ~/.ssh/id_ed25519
           pl_a_host_default_ntp: 192.168.1.1
           pl_a_host_fallback_ntp: 192.168.1.1
-          pl_a_cis_setup: true
-          pl_a_cis_setup_aide: true
-          pl_a_cis_ipv6_required: true
+          cis_setup_aide: true
+          cis_ipv6_required: true
         host2:
           ansible_user: groot
           ansible_host: 192.168.1.11
           ansible_ssh_private_key_file: ~/.ssh/id_ed25519
           pl_a_host_default_ntp: time.cloudflare.com
           pl_a_host_fallback_ntp: time.cloudflare.com
-          pl_a_cis_setup: true
-          pl_a_cis_setup_aide: false
-          pl_a_cis_ipv6_required: false
+          cis_setup_aide: false
+          cis_ipv6_required: false
   vars:
     ansible_python_interpreter: /usr/bin/python3
 ```
 
+> _`cis_setup_aide` and `cis_ipv6_required` are plain host variables that the
+> playbook below maps to the role options, so you only set them once per host.
+> Use an `ntp.ubuntu.com` server as fallback when you do not run your own._
+
 ### // prepare your playbook
 
-```sh
-$nano playbook.yml
-```
+Create `playbook.yml`:
 
-> **verify** the role **variable** are configured to your needs, or change them.\
-> also you should **read** the **README** of the ansible role.
+```sh
+vim playbook.yml
+```
 
 {% raw %}
 
@@ -159,30 +174,38 @@ $nano playbook.yml
       cis_ubuntu2204_section6: true
       cis_ubuntu2204_section7: true
       # -------------------------
+      # Prevent SSH lockout: the role removes password login and root login.
+      # Use a user + real public key, or the rule is skipped.
       cis_ubuntu2204_rule_5_1_24: true
       cis_ubuntu2204_rule_5_1_24_ssh_user: "{{ ansible_user }}"
       cis_ubuntu2204_rule_5_1_24_ssh_pub_key: "<ADD_PUB_KEY>"
       # -------------------------
-      cis_ubuntu2204_rule_1_3_1_3: true # AppArmor complain mode
-      cis_ubuntu2204_rule_1_3_1_4: false # AppArmor enforce mode
+      # AppArmor: start in complain mode, switch to enforce after testing.
+      cis_ubuntu2204_rule_1_3_1_3: true # complain mode
+      cis_ubuntu2204_rule_1_3_1_4: false # enforce mode
       # -------------------------
-      cis_ubuntu2204_rule_1_4_1: false # bootloader password (disabled)
-      cis_ubuntu2204_set_boot_pass: false # bootloader password (disabled)
-      cis_ubuntu2204_disable_boot_pass: true # bootloader password (disabled)
+      # GRUB password: keep it disabled for unattended hosts, otherwise set a password.
+      cis_ubuntu2204_set_boot_pass: false
+      cis_ubuntu2204_disable_boot_pass: true
       # -------------------------
+      # Keep squashfs so snap packages keep working (CIS would disable it).
+      cis_ubuntu2204_rule_1_1_1_7: false # squashfs (snap)
+      # -------------------------
+      # Keep USB storage and Bluetooth on client machines that need them.
+      cis_ubuntu2204_rule_1_1_1_9: false # usb-storage
       cis_ubuntu2204_rule_3_1_3: false # bluetooth service
-      cis_ubuntu2204_rule_3_1_3_remove: false # bluetooth service
+      cis_ubuntu2204_rule_3_1_3_remove: false
       # -------------------------
       cis_ubuntu2204_allow_gdm_gui: true
-      cis_ubuntu2204_allow_autofs: true # Disable auto mount, set to true to allow it and not disable
-      cis_ubuntu2204_rule_1_1_1_8: false # Disable USB Storage, set to false to not disable
+      cis_ubuntu2204_allow_autofs: true # true = keep autofs (do not disable)
+      cis_ubuntu2204_allow_cups: true
+      # -------------------------
       cis_ubuntu2204_time_synchronization_service: chrony # chrony | systemd-timesyncd
       cis_ubuntu2204_time_synchronization_time_server:
-        - uri: time.cloudflare.com
+        - uri: "{{ pl_a_host_default_ntp | default('time.cloudflare.com') }}"
           config: iburst
-        - uri: ntp.ubuntu.com
+        - uri: "{{ pl_a_host_fallback_ntp | default('ntp.ubuntu.com') }}"
           config: iburst
-      cis_ubuntu2204_allow_cups: true
       # -------------------------
       cis_ubuntu2204_install_aide: "{{ cis_setup_aide | default(false) | bool }}"
       cis_ubuntu2204_config_aide: "{{ cis_setup_aide | default(false) | bool }}"
@@ -202,8 +225,10 @@ $nano playbook.yml
       cis_ubuntu2204_journald_runtime_keep_free: 512M
       cis_ubuntu2204_journald_max_file_sec: 1month
       # -------------------------
+      cis_ubuntu2204_preferred_capturing_log_method: journald # journald | rsyslog
+      # -------------------------
       cis_ubuntu2204_required_ipv6: "{{ cis_ipv6_required | default(false) | bool }}"
-      cis_ubuntu2204_firewall: ufw
+      cis_ubuntu2204_firewall: ufw # ufw | nftables | iptables
       # -------------------------
       cis_ubuntu2204_cron_allow_users:
         - root
@@ -212,7 +237,7 @@ $nano playbook.yml
       # -------------------------
       cis_ubuntu2204_faillock_deny: 5
       cis_ubuntu2204_faillock_unlock_time: 900
-      cis_ubuntu2204_faillock_minlen: 8
+      cis_ubuntu2204_faillock_minlen: 14
       cis_ubuntu2204_password_complexity:
         - key: "minclass"
           value: "3"
@@ -229,22 +254,61 @@ $nano playbook.yml
 
 {% endraw %}
 
+> _`<ADD_PUB_KEY>` must be replaced with a real `ssh-ed25519`/`ssh-rsa` public key.
+> With the placeholder left in place the role cannot log you back in after it
+> disables password authentication. Keep a console/IPMI session open for the first
+> run._
+
+Important switches and their defaults:
+
+| Variable                                              | Default        | Effect                                                          |
+| :---------------------------------------------------- | :------------- | :-------------------------------------------------------------- |
+| `cis_ubuntu2204_rule_1_1_1_9`                         | `true`         | disables `usb-storage`; set `false` if USB storage is needed    |
+| `cis_ubuntu2204_rule_1_1_1_7`                         | `true`         | disables `squashfs`; set `false` to keep snap packages working  |
+| `cis_ubuntu2204_allow_gdm_gui`                        | `false`        | `false` purges the GUI; set `true` on desktops                  |
+| `cis_ubuntu2204_allow_autofs`                         | `false`        | `true` keeps `autofs`, `false` disables it                      |
+| `cis_ubuntu2204_allow_cups`                           | `false`        | `true` keeps CUPS printing                                      |
+| `cis_ubuntu2204_required_ipv6`                        | `false`        | `true` keeps IPv6 enabled                                       |
+| `cis_ubuntu2204_rule_1_3_1_3` / `_1_3_1_4`            | `true`/`false` | AppArmor complain vs enforce mode                               |
+| `cis_ubuntu2204_set_boot_pass` / `_disable_boot_pass` | `false`/`true` | set or remove the GRUB password                                 |
+| `cis_ubuntu2204_rule_3_1_3` / `_3_1_3_remove`         | `true`/`true`  | disable/remove Bluetooth (keep `false` on clients that need it) |
+| `cis_ubuntu2204_firewall`                             | `ufw`          | `ufw`, `nftables` or `iptables` - pick the one you actually use |
+| `cis_ubuntu2204_time_synchronization_service`         | `chrony`       | `chrony` or `systemd-timesyncd` - never both                    |
+| `cis_ubuntu2204_faillock_minlen`                      | `14`           | minimum password length; CIS recommends `14`                    |
+
 ### // run the role
 
-run the role to setup your defined targets in the inventory with the CIS hardenings:
-
-> options:
->
-> - `-k`: prompt for the SSH password required to connect to the target system
-> - `--ask-become-pass`: prompt for the password required to elevate privileges on the target system
+Check connectivity first, then test the playbook, then apply it:
 
 ```sh
-$ansible-playbook -i inventory.yml playbook.yml --ask-become-pass -k
+ansible -i inventory.yml clients -m ping
+
+# dry run: shows what would change, changes nothing
+ansible-playbook -i inventory.yml playbook.yml --ask-become-pass --check --diff
+
+# apply
+ansible-playbook -i inventory.yml playbook.yml --ask-become-pass
+```
+
+> _Options:_
+>
+> - `-k` - prompt for the SSH password (omit it when using keys)
+> - `--ask-become-pass` - prompt for the sudo password on the target
+> - `--check --diff` - dry run and show the file diffs
+
+### // verify
+
+```sh
+ansible -i inventory.yml clients -m shell -a 'sudo ufw status verbose'
+ansible -i inventory.yml clients -m shell -a 'sudo aa-status'
+ansible -i inventory.yml clients -m shell -a 'sudo systemctl status auditd --no-pager'
+ansible -i inventory.yml clients -m shell -a "sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication|kbdinteractiveauthentication'"
 ```
 
 ---
 
-## \\\\ Resources & More information's
+## \\\\ Resources & More information
 
-- <https://downloads.cisecurity.org/>{:target="\_blank"}
 - <https://github.com/MVladislav/ansible-cis-ubuntu-2204>{:target="\_blank"}
+- <https://github.com/MVladislav/ansible-cis-ubuntu-2404>{:target="\_blank"}
+- <https://downloads.cisecurity.org/>{:target="\_blank"}
