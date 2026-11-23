@@ -66,7 +66,7 @@ advanced security capabilities to protect against modern cyber threats.
 
 ## \\\\ System > \*
 
-### // Access
+### // Access {#access}
 
 > Always create **individual admin accounts** and protect them with **TOTP**.  
 > {: .prompt-tip }
@@ -222,7 +222,7 @@ sufficient, but add a **remote syslog target** for a security baseline (see
   security baseline; keep local retention as needed. A dedicated target
   filtered to `suricata` / info is useful if you enable Suricata EVE output.
 
-### // Trust > \*
+### // Trust > \* {#trust}
 
 #### Authorities
 
@@ -240,7 +240,7 @@ Create an **internal root CA** and an **intermediate CA** to sign internal certi
 
 ![Certificates Trust System](/assets/img/posts/opnsense/Certificates_Trust_System_1683909316305_0.png)
 
-## \\\\ Interfaces > \*
+## \\\\ Interfaces > \* {#interfaces}
 
 - **Assignments**
   - Assign your physical or virtual network ports as interfaces.
@@ -523,7 +523,7 @@ https://ipinfo.io/data/ipinfo_lite.csv.gz?token=<LICENSE-KEY>
 |                     | Option6   | `dns-server [23]`       |
 |                     | Value     | `[fd00:affe:affe:1::1]` |
 
-### // Unbound DNS
+### // Unbound DNS {#unbound-dns}
 
 #### General
 
@@ -626,7 +626,7 @@ Use System Nameservers: **_unchecked_**
 > DNSSEC validation.
 > {: .prompt-info }
 
-### // ACME
+### // ACME {#acme}
 
 #### Settings
 
@@ -697,7 +697,7 @@ IONOS:
 | Automations    | `Restart OPNsense Web UI`                  |
 | DNS Alias Mode | `Not using DNS alias mode`                 |
 
-### // Dynamic DNS
+### // Dynamic DNS {#dynamic-dns}
 
 #### Settings
 
@@ -738,7 +738,7 @@ Ionos Example [IPv4]:
 - Enable: **_checked_**
 - Interval: **`300`**
 
-### // Intrusion Detection
+### // Intrusion Detection {#intrusion-detection}
 
 #### Settings
 
@@ -775,7 +775,7 @@ Ionos Example [IPv4]:
 
 ![Cron Settings System](/assets/img/posts/opnsense/Cron_Settings_System_1683913306303_0.png)
 
-### // NTP
+### // NTP {#ntp}
 
 OPNsense ships with **ntpd enabled by default**. It is the target of the
 [NAT rules](#nat-destination-nat) that forward client NTP traffic to the firewall.
@@ -813,7 +813,7 @@ Yours sincerely,
 Monit
 ```
 
-## \\\\ Zenarmor > \*
+## \\\\ Zenarmor > \* {#zenarmor}
 
 ### // Policies (Default)
 
