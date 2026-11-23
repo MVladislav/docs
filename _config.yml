@@ -121,7 +121,7 @@ comments:
     issue_term: # < url | pathname | title | ...>
   # Giscus options › https://giscus.app
   giscus:
-    repo: MVladislav/MVladislav.github.io # <gh-username>/<repo>
+    repo: MVladislav/docs # <gh-username>/<repo>
     repo_id: R_kgDOJipZzw
     category: Q&A
     category_id: DIC_kwDOJipZz84CWd0H
