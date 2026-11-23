@@ -144,8 +144,8 @@ all:
     ansible_python_interpreter: /usr/bin/python3
 ```
 
-> _Host variables override the role defaults, so the per-host `cis_docker_*`_
-> _values above are picked up without repeating them in the playbook._
+> _Host variables override the role defaults, so the per-host `cis_docker_*`
+> values above are picked up without repeating them in the playbook._
 
 ### // prepare your playbook
 

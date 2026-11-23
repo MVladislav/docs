@@ -98,9 +98,9 @@ Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 ```
 
-> _For **Proxmox Backup Server** the component is **`pbs-no-subscription`**
-> (e.g. `deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription`)
-> and the enterprise file is `pbs-enterprise.list` / `pbs-enterprise.sources`._
+> _For **Proxmox Backup Server** the component is **`pbs-no-subscription`**_
+> _(e.g. `deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription`)_
+> _and the enterprise file is `pbs-enterprise.list` / `pbs-enterprise.sources`._
 
 verify the repositories and install the updates:
 
@@ -149,8 +149,8 @@ check and adjust the important options in `/etc/apt/apt.conf.d/50unattended-upgr
 > > - `Unattended-Upgrade::Origins-Pattern`:
 > >   allow only `${distro_id}:${distro_codename}-security`
 > >   and **both** security-origin patterns:
-> >   `origin=Debian,codename=${distro_codename},label=Debian-Security` and
-> >   and `origin=Debian,codename=${distro_codename}-security,label=Debian-Security`
+> >   `origin=Debian,codename=${distro_codename},label=Debian-Security` **and**
+> >   `origin=Debian,codename=${distro_codename}-security,label=Debian-Security`
 > >   (the security archive uses `n=trixie-security`), so **only Debian security
 > >   updates** get applied. Use `#clear Unattended-Upgrade::Origins-Pattern;`
 > >   in a later config file to replace the defaults instead of appending.
@@ -952,8 +952,8 @@ cat /proc/cmdline      # verify after the next reboot
 | **Legacy/Intel (Ignore for AMD)** |                            |                                     |                               |                                                                           |
 |                                   | `intel_pstate`             | `disable`                           | -                             | Disables Intel's P-State driver (irrelevant for AMD CPUs).                |
 
-> **How to read the table:** _Good Value_ is what this guide uses, _Optional Value_
-> lists realistic alternatives. Every entry is optional tuning - keep the
+> **How to read the table:** _Good Value_ is what this guide uses, _Optional
+> Value_ lists realistic alternatives. Every entry is optional tuning - keep the
 > kernel default unless you hit the described problem.
 
 **AMD-specific**

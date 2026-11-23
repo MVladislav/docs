@@ -64,6 +64,8 @@ services:
   ##############################################################################
   jekyll:
     # https://hub.docker.com/r/bretfisher/jekyll
+    userns_mode: "host"
+    user: "${JEKYLL_UID:-1000}:${JEKYLL_GID:-1000}"
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -81,8 +83,10 @@ services:
     #   - 4000:4000
     environment:
       JEKYLL_ENV: production
-      JEKYLL_UID: 2000
-      JEKYLL_GID: 3366
+      JEKYLL_UID: ${JEKYLL_UID:-1000} # 2000
+      JEKYLL_GID: ${JEKYLL_GID:-1000} # 3366
+      HOME: /tmp
+      BUNDLE_PATH: /site/vendor/bundle
     volumes:
       - ${MK_MAIN_PATH:-$PWD}:/site
     # entrypoint: bash

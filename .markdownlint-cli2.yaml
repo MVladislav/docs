@@ -1,0 +1,19 @@
+---
+# Markdown lint rules for this Jekyll/Chirpy site.
+# Chirpy uses HTML callouts, explicit {#anchors}, repeated sub-section names,
+# two-space hard line breaks and long reference lines; those rules are relaxed.
+config:
+  MD009:
+    br_spaces: 2
+    strict: false
+  MD013: false # long lines in reference docs
+  MD024: false # repeated sub-section names (General, Settings, ...)
+  MD028: false # intentional blank lines inside blockquote callouts
+  MD033: false # inline HTML used by Chirpy prompts and the about page
+  MD036: false # emphasis used as a grouping label
+  MD041: false # front matter / tab pages do not start with an H1
+  MD049: false # both asterisk and underscore emphasis are used
+  MD051: false # explicit {#anchors} are not understood by this rule
+gitignore: true
+noBanner: true
+noProgress: true

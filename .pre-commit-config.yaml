@@ -1,30 +1,32 @@
 ---
-##### CI for use by github no need for action to be added
+##### CI for use by GitHub, no action needs to be added
 ##### https://pre-commit.com/hooks.html
-##### Inherited
+
 ci:
   autofix_prs: false
 
 repos:
+  # Spelling
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.3
     hooks:
       - id: codespell
         args:
-          - --ignore-words-list=ihs,ro,fo,rouge
+          - --ignore-words-list=ihs,ro,fo,iif,rouge
           - --skip="./.*,*.csv,*.json"
           - --quiet-level=2
         exclude_types:
           - csv
           - json
 
+  # General repository hygiene
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       # Safety
       - id: detect-private-key
 
-      # git checks
+      # Git checks
       - id: check-merge-conflict
       - id: check-added-large-files
       - id: check-case-conflict
@@ -32,42 +34,45 @@ repos:
       # General checks
       - id: check-executables-have-shebangs
       - id: trailing-whitespace
-        name: Trim Trailing Whitespace
-        description: This hook trims trailing whitespace.
-        entry: trailing-whitespace-fixer
-        language: python
-        types: [text]
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
-      # - id: requirements-txt-fixer
-      # - id: check-toml
-      # - id: check-json
+      - id: check-json
+        # These are JSONC (JSON with comments) for VS Code / devcontainers
+        exclude: ^(\.devcontainer/devcontainer\.json|\.vscode/settings\.json)$
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: mixed-line-ending
+        args: [--fix=lf]
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
+  # Formatting
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.10.1
     hooks:
       - id: prettier
         additional_dependencies:
-          - prettier@3.0.3
-          - prettier-plugin-sort-json@3.0.1
+          - prettier@3.10.1
         exclude_types:
           - python
+        exclude: ^assets/img/favicons/site\.webmanifest$
 
-  # Scan for passwords
+  # Markdown linting (config in .markdownlint-cli2.yaml)
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.24.2
+    hooks:
+      - id: markdownlint-cli2
+
+  # Secret detection
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.28.0
+    rev: v8.30.1
     hooks:
       - id: gitleaks
 
+  # YAML linting
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.37.1 # or higher tag
+    rev: v1.38.0
     hooks:
       - id: yamllint
