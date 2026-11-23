@@ -56,6 +56,12 @@ advanced security capabilities to protect against modern cyber threats.
 > This guide helps you establish a **secure baseline configuration** before applying customizations.  
 > {: .prompt-warning }
 
+> **Suggested order:** General → Interfaces → Aliases → Groups → Firewall rules →
+> Dnsmasq → Unbound → ACME → Services. Create and test the admin rules before
+> disabling anti-lockout, and verify DNS resolution before enabling the blocking
+> rules.  
+> {: .prompt-tip }
+
 ---
 
 ## \\\\ System > \*
@@ -65,23 +71,40 @@ advanced security capabilities to protect against modern cyber threats.
 > Always create **individual admin accounts** and protect them with **TOTP**.  
 > {: .prompt-tip }
 
-1. Go to **System > Access > Servers** and create a new service for **TOTP**.
-   - After creation, select it under **System > Settings > Administration > Authentication > Server**.
+1. Go to **System > Access > Servers** and add a server of type
+   **Local + Timebased One Time Password** (token length `6`, leave time window
+   and grace period empty).
+   - Select it under **System > Settings > Administration > Authentication > Server**
+     and **deselect "Local Database"**, otherwise the password alone bypasses 2FA.
    - ![TOTP Service](/assets/img/posts/opnsense/TOTP_Service_1683906505312_0.png)
 2. For each user, generate a seed under **OTP seed** and pair it with an authenticator app.
+3. Test at **System > Access > Tester** before enabling - enter `TOKENpassword`
+   (default) or `passwordTOKEN` if "Reverse token order" is set.
+
+> There are **no built-in recovery codes**: store the seed/QR offline. TOTP
+> covers the Web GUI only - **console and SSH are not protected by it**. API
+> keys are separate credentials that bypass GUI TOTP, so restrict their
+> privileges. Users need the "User OTP seed" right to self-generate seeds.  
+> {: .prompt-warning }
 
 ### // Firmware > Plugins
 
 > Recommended plugins for a secure and manageable OPNsense setup.  
 > {: .prompt-info }
 
-- **[ZenArmor (formerly Sensei)](#-zenarmor--) `[RECOMMENDED]`** - Next-Generation Firewall
+- **[ZenArmor (formerly Sensei)](#zenarmor) `[RECOMMENDED]`** - Next-Generation Firewall
   - **os-sensei**
   - **os-sensei-updater**
   - **os-sunnyvalley**
 - **os-q-feeds-connector `[RECOMMENDED]`** - Threat-Intel
-- **[os-acme-client](#-acme) `[RECOMMENDED]`** - Valid TLS-Certificates.
-- **[os-ddclient](#-dynamic-dns) `[OPTIONAL]`** - Dynamic DNS support.
+  > After installing, go to **Security > Q-Feeds Connect > Settings**, paste a
+  > free API key from <https://tip.qfeeds.com> and click **Apply**. Without a
+  > key the `__qfeeds_malware_ip` alias stays empty and the rules below do
+  > nothing. On older builds raise **Firewall Maximum Table Entries** to
+  > ≥ 2,000,000 (or `net.pf.request_maxcount`) or feeds are truncated.  
+  > {: .prompt-info }
+- **[os-acme-client](#acme) `[RECOMMENDED]`** - Valid TLS-Certificates.
+- **[os-ddclient](#dynamic-dns) `[OPTIONAL]`** - Dynamic DNS support.
 - **os-qemu-guest-agent `[OPTIONAL]`** - For Proxmox/VM integration.
 - **os-net-snmp `[OPTIONAL]`** - SNMP-Monitoring.
 - **[os-theme-vicuna](#general) `[OPTIONAL]`** - Dark mode theme.
@@ -103,21 +126,31 @@ advanced security capabilities to protect against modern cyber threats.
 
 - **Web GUI**
   - Protocol: `HTTPS`
-  - SSL Certificate: _needs to be created first as described in section [internal CA](#-trust--) or [ACME](#-acme)_
+  - SSL Certificate: _needs to be created first as described in section [internal CA](#trust) or [ACME](#acme)_
   - HTTP Strict Transport Security: _enabled_
+  - Login Protection (brute-force lockout): _enabled_
+  - Session Timeout: `30` (minutes)
   - Access Log: _enabled_
   - Server Log: _enabled_
   - Listen Interfaces: _Restrict to admin/management subnet_
 - **Secure Shell**
   - Secure Shell Server: _Disabled by default (enable only if needed)_
   - Listen Interfaces: _Restrict to admin/management subnet_
+  - If enabled: add an ed25519 public key under **System > Access > Users > Authorized keys**,
+    disable password and root login, and keep it restricted to the MGMT subnet.
+    TOTP does **not** protect SSH.
 - **Authentication**
-  - Server: _Choose TOTP service ([Access](#-access))_
+  - Server: _Choose TOTP service ([Access](#access))_
 
 #### General
 
 - Hostname: `opnsense` (or any name you prefer)
-- Domain: `home.local` (or your own domain - _[internal CA](#-trust--) or [ACME](#-acme)_)
+- Domain: `home.arpa` (or your own domain - _[internal CA](#trust) or [ACME](#acme)_)
+  > `.local` is reserved for mDNS (RFC 6762) and is intercepted by
+  > Avahi/Bonjour/systemd-resolved, which breaks unicast lookups under it.
+  > `home.arpa` is the reserved home-network domain (RFC 8375). Use it without a
+  > trailing dot.  
+  > {: .prompt-info }
 - Time zone: `Europe/Berlin`
 - Theme: `vicuna`
   > **!!!** Highly recommended using dark mode, **bugs love light** **!!!**  
@@ -129,44 +162,71 @@ advanced security capabilities to protect against modern cyber threats.
 
 #### Logging
 
-Adjust log retention and log level as needed. The defaults are usually sufficient.
+Adjust log retention and log level as needed. The local defaults are usually
+sufficient, but add a **remote syslog target** for a security baseline (see
+[Configuration > Backups](#configuration--backups)).
 
 ![Logging Settings System](/assets/img/posts/opnsense/Logging_Settings_System_1683907923484_0.png)
 
 #### Tunables
 
+> Apply only the values you actually need, then reboot: RSS and netisr changes
+> take effect at boot. OPNsense's shipped defaults are already the hardened ones.  
+> {: .prompt-info }
+
 | Key                               | Value       | Description                                                             |
 | :-------------------------------- | :---------- | :---------------------------------------------------------------------- |
-| `hw.ibrs_disable`                 | `1`         | Disable Indirect Branch Restricted Speculation                          |
-| `net.isr.maxthreads`              | `-1`        | Use at most this many CPUs for netisr processing                        |
+| `net.isr.maxthreads`              | `-1`        | Use all CPUs for netisr processing                                      |
 | `net.isr.bindthreads`             | `1`         | Bind netisr threads to CPUs                                             |
-| `net.isr.dispatch`                | `deferred`  | netisr dispatch policy                                                  |
-| `net.inet.rss.enabled`            | `1`         | RSS enabled                                                             |
+| `net.isr.dispatch`                | `deferred`  | Optional: netisr dispatch policy (only if you see packet drops)         |
+| `net.inet.rss.enabled`            | `1`         | Enable Receive Side Scaling (requires reboot)                           |
 | `net.inet.rss.bits`               | `3`         | `<CORES>/4=<VALUE>` RSS bits                                            |
-| `kern.ipc.maxsockbuf`             | `614400000` | `614400000=100Gbps` `16777216=10Gbps` Maximum socket buffer size        |
+| `kern.ipc.maxsockbuf`             | `614400000` | Max socket buffer: `614400000`=100G, `16777216`=10G                     |
 | `net.inet.tcp.recvbuf_max`        | `4194304`   | Max size of automatic receive buffer                                    |
 | `net.inet.tcp.recvspace`          | `65536`     | Initial receive socket buffer size                                      |
 | `net.inet.tcp.sendspace`          | `65536`     | Initial send socket buffer size                                         |
 | `net.inet.tcp.sendbuf_inc`        | `65536`     | Incrementor step size of automatic send buffer                          |
 | `net.inet.tcp.sendbuf_max`        | `4194304`   | Max size of automatic send buffer                                       |
-| `net.inet.tcp.soreceive_stream`   | `1`         | Using soreceive_stream for TCP sockets                                  |
-|                                   |             |                                                                         |
 | `net.inet.tcp.mssdflt`            | `1240`      | Default TCP Maximum Segment Size                                        |
 | `net.inet.tcp.abc_l_var`          | `52`        | Cap the max cwnd increment during slow-start to this number of segments |
 | `net.inet.tcp.minmss`             | `536`       | Minimum TCP Maximum Segment Size                                        |
 | `net.isr.defaultqlimit`           | `2048`      | Default netisr per-protocol, per-CPU queue limit if not set by protocol |
-|                                   |             |                                                                         |
 | `kern.random.fortuna.minpoolsize` | `128`       | Minimum pool size necessary to cause a reseed                           |
-|                                   |             |                                                                         |
-| `net.pf.source_nodes_hashsize`    | `1048576`   |                                                                         |
-|                                   |             |                                                                         |
-| `kern.hz`                         | `1000`      | Number of clock ticks per second (improve for shaper on vm's)           |
+| `net.pf.source_nodes_hashsize`    | `1048576`   | PF state-table hash size (default `32768`)                              |
+| `net.inet.ip.redirect`            | `0`         | Disable ICMP redirects [IPv4]                                           |
+| `net.inet6.ip6.redirect`          | `0`         | Disable ICMP redirects [IPv6]                                           |
+| `net.inet.ip.sourceroute`         | `0`         | Disable IP source routing                                               |
+
+> - `kern.ipc.maxsockbuf` and the TCP buffer sizes only help at multi-gigabit
+>   throughput; scale them to your link instead of copying the 100G values.
+> - `net.inet.tcp.mssdflt=1240` is a global MSS clamp. For PPPoE (MTU 1492) the
+>   correct MSS is `1452`; `1240` is conservative and costs throughput.
+>   {: .prompt-tip }
+
+### // Configuration > Backups {#configuration--backups}
+
+| Key                                 | Value                                            |
+| :---------------------------------- | :----------------------------------------------- |
+| **Restore Point**                   | _create before every major change_               |
+| **Encrypt this configuration file** | _checked_                                        |
+| **Download**                        | _keep an encrypted off-box copy of `config.xml`_ |
+
+- `config.xml` contains secrets (ACME/SMTP/DDNS credentials, VPN keys, OTP
+  seeds, API keys). Enable **Encrypt this configuration file** and store the
+  off-box copy encrypted, with a passphrase you keep outside the backup.
+- Create a **Restore Point** before every major change so you can roll back from the web GUI.
+- **Firmware > Settings**: keep **Release Type = Production**, choose a healthy
+  mirror, and apply patch updates promptly. Do major upgrades with console/VGA
+  access available (upgrades run offline and reboot).
+- **System > Settings > Logging > Targets**: add a remote syslog target for a
+  security baseline; keep local retention as needed. A dedicated target
+  filtered to `suricata` / info is useful if you enable Suricata EVE output.
 
 ### // Trust > \*
 
 #### Authorities
 
-Create an **internal root CA** and an **intermediate CA** to sign internal certificates. (You can skip this part if you want to use [ACME](#-trust--) only.)
+Create an **internal root CA** and an **intermediate CA** to sign internal certificates. (You can skip this part if you want to use [ACME](#acme) only.)
 
 - **Root CA**: `internal-ca` (kept offline if possible)
   - ![Authorities Trust System :: Root CA](/assets/img/posts/opnsense/Authorities_Trust_System_1683909084329_0.png)
@@ -176,7 +236,7 @@ Create an **internal root CA** and an **intermediate CA** to sign internal certi
 #### Certificates
 
 - For quick and unsigned certificate: generate an **OPNsense certificate** signed by your **intermediate CA**.
-- For a signed certificate: use **os-acme-client ([ACME](#-trust--))** to issue a **valid, auto-renewed certificate** for the OPNsense GUI (e.g., `opnsense.example.com`).
+- For a signed certificate: use **os-acme-client ([ACME](#acme))** to issue a **valid, auto-renewed certificate** for the OPNsense GUI (e.g., `opnsense.example.com`).
 
 ![Certificates Trust System](/assets/img/posts/opnsense/Certificates_Trust_System_1683909316305_0.png)
 
@@ -196,37 +256,50 @@ Create an **internal root CA** and an **intermediate CA** to sign internal certi
 
 ### // Aliases > GeoIP settings
 
-Add the following URL (replace `<LICENSE-KEY>`):
+Add this URL under **Firewall > Aliases > GeoIP settings** (replace both placeholders):
 
 ```plain
-https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key=<LICENSE-KEY>&suffix=zip
+https://<ACCOUNT-ID>:<LICENSE-KEY>@download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip
 ```
 
-### // Aliases > Aliases
+```plain
+# 3934549
+https://ipinfo.io/data/ipinfo_lite.csv.gz?token=<LICENSE-KEY>
+```
 
-| Type                | Name                       | Content                                                                                                                                                                                       | Description                                                                          | Statistics    | Refresh Frequency |
-| ------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------- | ----------------- |
-| **Host(s)**         |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
-|                     | IP_S_DNS_NTP_INTERN        | `192.168.1.1, fd00:affe:affe:1::1`                                                                                                                                                            | IP: service internal DNS+NTP (IPv4+IPv6)                                             | **_checked_** |                   |
-|                     | IP_S_MDNS_SSDP             | `ff02::fb, 224.0.0.251, 239.255.255.250`                                                                                                                                                      | IP: MDNS and SSDP hosts                                                              | **_checked_** |                   |
-|                     | IP_S_PUBLIC_DNS            | `1.1.1.1, 8.8.8.8, 101.101.101.101`                                                                                                                                                           | IP: default public DNS servers                                                       | **_checked_** |                   |
-| **Network(s)**      |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
-|                     | SUB_PRIV4                  | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16`                                                                                                                                                   | SUB: RFC1918 IPv4 private net                                                        | **_checked_** |                   |
-|                     | SUB_SITE_MC                | `239.254.0.0/16`                                                                                                                                                                              | SUB: site-local multicast (RFC2365)                                                  | **_checked_** |                   |
-|                     | SUB_PRIV_BOGON             | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 224.0.0.0/4, 255.255.255.255, fe80::/10, ::1/128, ff00::/8, fc00::/7, ff02::1, ff02::2, 2001:db8::/32, ::/128, 2002::/16, 3ffe::/16` | SUB: RFC1918 + Bogon + Local + Multicast + Additional (Unspecified, 6to4, Old 6bone) | **_checked_** |                   |
-|                     | SUB_PRIV6                  | `fd00:affe:affe:0::0/48`                                                                                                                                                                      | SUB: RFC4193 IPv6 ULA                                                                | **_checked_** |                   |
-|                     | SUB_MULTI_BROAD            | `ff00::/8, 224.0.0.0/4, 255.255.255.255, ff02::1, ff02::c, ff02::fb, ff02::1:2`                                                                                                               | SUB: multicast + broadcast (IPv4+IPv6)                                               | **_checked_** |                   |
-|                     | SUB_GLOBAL6                | `2000::/3`                                                                                                                                                                                    | SUB: IPv6 global unicast                                                             | **_checked_** |                   |
-|                     | SUB_RFC1918_IPV6_RIPE_2A00 | `2a00::/16`                                                                                                                                                                                   | SUB: RFC 1918 IPv6 - RIPE '2a00:' block                                              | **_checked_** |                   |
-|                     | SUB_ULA6                   | `fd00::/8`                                                                                                                                                                                    | SUB: IPv6 unique local address                                                       | **_checked_** |                   |
-|                     | SUB_LINK_LOCAL6            | `fe80::/10`                                                                                                                                                                                   | SUB: IPv6 link local                                                                 | **_checked_** |                   |
-| **Port(s)**         |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
-|                     | PORT_DNS_BLOCK             | `53, 853, 2853, 9953`                                                                                                                                                                         | PORT: DNS block ports (for outside connections)                                      |               |                   |
-| **URL Table (IPs)** |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
-|                     | URL_BLOCK_LIST             | `https://ipv64.net/blocklists/ipv64_blocklist_all.txt`                                                                                                                                        |                                                                                      | **_checked_** | `1D 0H`           |
-| **GeoIP**           |                            |                                                                                                                                                                                               |                                                                                      |               |                   |
-|                     | GEO_BLOCK_BAD              | **_Choose regions you want block_**                                                                                                                                                           | GEO: block bad countries                                                             | **_checked_** |                   |
-|                     | GEO_ALLOW_VPN              | **_Choose regions you want allow_**                                                                                                                                                           | GEO: allow vpn access                                                                | **_checked_** |                   |
+> Requires a free MaxMind account. GeoLite2 Country is published on Tuesdays and
+> Fridays, so set the GEO alias refresh to **~3 days** (or daily).  
+> {: .prompt-info }
+
+### // Aliases > Aliases {#aliases-aliases}
+
+| Type                | Name                | Content                                                                                                                                                                                       | Description                                                                          | Statistics    | Refresh Frequency |
+| ------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------- | ----------------- |
+| **Host(s)**         |                     |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | IP_S_DNS_NTP_INTERN | `192.168.1.1, fd00:affe:affe:1::1`                                                                                                                                                            | IP: service internal DNS+NTP (IPv4+IPv6)                                             | **_checked_** |                   |
+|                     | IP_S_MDNS_SSDP      | `ff02::fb, 224.0.0.251, 239.255.255.250`                                                                                                                                                      | IP: MDNS and SSDP hosts                                                              | **_checked_** |                   |
+|                     | IP_S_PUBLIC_DNS     | `1.1.1.1, 8.8.8.8, 101.101.101.101`                                                                                                                                                           | IP: default public DNS servers                                                       | **_checked_** |                   |
+| **Network(s)**      |                     |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | SUB_PRIV4           | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16`                                                                                                                                                   | SUB: RFC1918 IPv4 private net                                                        | **_checked_** |                   |
+|                     | SUB_SITE_MC         | `239.254.0.0/16`                                                                                                                                                                              | SUB: site-local multicast (RFC2365)                                                  | **_checked_** |                   |
+|                     | SUB_PRIV_BOGON      | `10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 224.0.0.0/4, 255.255.255.255, fe80::/10, ::1/128, ff00::/8, fc00::/7, ff02::1, ff02::2, 2001:db8::/32, ::/128, 2002::/16, 3ffe::/16` | SUB: RFC1918 + Bogon + Local + Multicast + Additional (Unspecified, 6to4, Old 6bone) | **_checked_** |                   |
+|                     | SUB_PRIV6           | `fd00:affe:affe:0::0/48`                                                                                                                                                                      | SUB: RFC4193 IPv6 ULA                                                                | **_checked_** |                   |
+|                     | SUB_MULTI_BROAD     | `ff00::/8, 224.0.0.0/4, 255.255.255.255, ff02::1, ff02::c, ff02::fb, ff02::1:2`                                                                                                               | SUB: multicast + broadcast (IPv4+IPv6)                                               | **_checked_** |                   |
+|                     | SUB_GLOBAL6         | `2000::/3`                                                                                                                                                                                    | SUB: IPv6 global unicast                                                             | **_checked_** |                   |
+|                     | SUB_RIPE_2A00       | `2a00::/16`                                                                                                                                                                                   | SUB: RIPE NCC '2a00:' block - **not** RFC1918/private                                | **_checked_** |                   |
+|                     | SUB_ULA6            | `fd00::/8`                                                                                                                                                                                    | SUB: IPv6 unique local address                                                       | **_checked_** |                   |
+|                     | SUB_LINK_LOCAL6     | `fe80::/10`                                                                                                                                                                                   | SUB: IPv6 link local                                                                 | **_checked_** |                   |
+| **Port(s)**         |                     |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | PORT_DNS_BLOCK      | `53, 853, 2853, 9953`                                                                                                                                                                         | PORT: DNS block ports (for outside connections)                                      |               |                   |
+| **URL Table (IPs)** |                     |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | URL_BLOCK_LIST      | `https://ipv64.net/blocklists/ipv64_blocklist_all.txt`                                                                                                                                        |                                                                                      | **_checked_** | `1D 0H`           |
+| **GeoIP**           |                     |                                                                                                                                                                                               |                                                                                      |               |                   |
+|                     | GEO_BLOCK_BAD       | **_Choose regions you want block_**                                                                                                                                                           | GEO: block bad countries                                                             | **_checked_** |                   |
+|                     | GEO_ALLOW_VPN       | **_Choose regions you want allow_**                                                                                                                                                           | GEO: allow vpn access                                                                | **_checked_** |                   |
+
+> `IP_S_MDNS_SSDP` and `IP_S_PUBLIC_DNS` are only needed if your own rules reference them.  
+> `SUB_RIPE_2A00` is RIPE-assigned address space - **not** RFC1918/private - do not use it as an "internal" source in allow rules.  
+> {: .prompt-info }
 
 ### // Groups
 
@@ -237,9 +310,10 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 | G_PUB_NET4_D | `5`      | **_checked_**   | **_add interfaces which should have internet access_** | default public net access (IPv4) |
 | G_PUB_NET6_D | `6`      | **_checked_**   | **_add interfaces which should have internet access_** | default public net access (IPv6) |
 
-### // NAT > Destination NAT
+### // NAT > Destination NAT {#nat-destination-nat}
 
-> Forward NTP/DNS traffic to the firewall instead of blocking it.
+> Forward NTP/DNS traffic to the firewall instead of blocking it.  
+> The NTP part requires the built-in ntpd service to run - see [NTP](#ntp).
 
 | Description                              | Interface               | Version | Protocol  | Invert Source   | Source      | Invert Destination | Destination           | Destination Port | Redirect target IP    | Redirect Target Port | Log           | Filter rule association |
 | ---------------------------------------- | ----------------------- | ------- | --------- | --------------- | ----------- | ------------------ | --------------------- | ---------------- | --------------------- | -------------------- | ------------- | ----------------------- |
@@ -252,25 +326,38 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 #### Floating
 
-| Description                                           | Interface  | Quick           | Action  | Direction | Version | Protocol  | Invert Source   | Source                                             | Invert Destination | Destination                                  | Destination Port | Log             |
-| ----------------------------------------------------- | ---------- | --------------- | ------- | --------- | ------- | --------- | --------------- | -------------------------------------------------- | ------------------ | -------------------------------------------- | ---------------- | --------------- |
-| BLOCK:: F: restrict access by bad block list (out)    | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `URL_BLOCK_LIST`                             | **any**          | **_checked_**   |
-| BLOCK:: F: restrict access by bad geo countries (out) | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `GEO_BLOCK_BAD`                              | **any**          | **_checked_**   |
-| BLOCK:: F: restrict access by qfeeds list (out)       | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `__qfeeds_malware_ip`                        | **any**          | **_checked_**   |
-| ALLOW:: F: NTP internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | **any** | `UDP`     | **_unchecked_** | `SUB_PRIV4, SUB_PRIV6, SUB_RFC1918_IPV6_RIPE_2A00` | **_unchecked_**    | `IP_S_DNS_NTP_INTERN`                        | `123`            | **_checked_**   |
-| ALLOW:: F: MLD internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | `IPv6`  | `ICMP`    | **_unchecked_** | `SUB_LINK_LOCAL6`                                  | **_unchecked_**    | `ff02::16/128`                               | **any**          | **_checked_**   |
-| BLOCK:: F: no rule wan [IPv4]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
-| BLOCK:: F: no rule local [IPv4]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD`            | **any**          | **_checked_**   |
-| BLOCK:: F: no rule wan [IPv6]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
-| BLOCK:: F: no rule local [IPv6]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD, SUB_PRIV6` | **any**          | **_checked_**   |
-| BLOCK:: F: DoT (flooding)                             | **_none_** | **_checked_**   | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | **any**                                      | `853`            | **_unchecked_** |
-| BLOCK:: F: IGMP access (flooding)                     | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `IGMP`    | **_unchecked_** | **any**                                            | **_unchecked_**    | `SUB_MULTI_BROAD`                            | **any**          | **_unchecked_** |
-| BLOCK:: F: SSDP on port 1900 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `1900`           | **_unchecked_** |
-| BLOCK:: F: DDDP on port 9131 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `9131`           | **_unchecked_** |
-| BLOCK:: F: WS-Discovery on port 3702 (flooding)       | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `3702`           | **_unchecked_** |
-| BLOCK:: F: MDNS on port 5353 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5353`           | **_unchecked_** |
-| BLOCK:: F: MDNS on port 5355 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5355`           | **_unchecked_** |
-| BLOCK:: F: NetBIOS on port 137-139 (flooding)         | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`                                   | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `137-139`        | **_unchecked_** |
+| Description                                           | Interface  | Quick           | Action  | Direction | Version | Protocol  | Invert Source   | Source                 | Invert Destination | Destination                                  | Destination Port | Log             |
+| ----------------------------------------------------- | ---------- | --------------- | ------- | --------- | ------- | --------- | --------------- | ---------------------- | ------------------ | -------------------------------------------- | ---------------- | --------------- |
+| BLOCK:: F: restrict access by bad block list (out)    | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | `URL_BLOCK_LIST`                             | **any**          | **_checked_**   |
+| BLOCK:: F: restrict access by bad geo countries (out) | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | `GEO_BLOCK_BAD`                              | **any**          | **_checked_**   |
+| BLOCK:: F: restrict access by qfeeds list (out)       | **_none_** | **_checked_**   | `Block` | `in`      | **any** | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | `__qfeeds_malware_ip`                        | **any**          | **_checked_**   |
+| ALLOW:: F: NTP internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | **any** | `UDP`     | **_unchecked_** | `SUB_PRIV4, SUB_PRIV6` | **_unchecked_**    | `IP_S_DNS_NTP_INTERN`                        | `123`            | **_checked_**   |
+| ALLOW:: F: MLD internal access                        | **_none_** | **_checked_**   | `Pass`  | `in`      | `IPv6`  | `ICMP`    | **_unchecked_** | `SUB_LINK_LOCAL6`      | **_unchecked_**    | `ff02::16/128`                               | **any**          | **_checked_**   |
+| BLOCK:: F: no rule wan [IPv4]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
+| BLOCK:: F: no rule local [IPv4]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv4`  | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD`            | **any**          | **_checked_**   |
+| BLOCK:: F: no rule wan [IPv6]                         | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | **any**                                      | **any**          | **_checked_**   |
+| BLOCK:: F: no rule local [IPv6]                       | **_none_** | **_unchecked_** | `Block` | `in`      | `IPv6`  | **any**   | **_unchecked_** | **any**                | **_unchecked_**    | `SUB_PRIV_BOGON, SUB_MULTI_BROAD, SUB_PRIV6` | **any**          | **_checked_**   |
+| BLOCK:: F: DoT (flooding)                             | **_none_** | **_checked_**   | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | **any**                                      | `853`            | **_unchecked_** |
+| BLOCK:: F: IGMP access (flooding)                     | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `IGMP`    | **_unchecked_** | **any**                | **_unchecked_**    | `SUB_MULTI_BROAD`                            | **any**          | **_unchecked_** |
+| BLOCK:: F: SSDP on port 1900 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `1900`           | **_unchecked_** |
+| BLOCK:: F: DDDP on port 9131 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `9131`           | **_unchecked_** |
+| BLOCK:: F: WS-Discovery on port 3702 (flooding)       | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `3702`           | **_unchecked_** |
+| BLOCK:: F: MDNS on port 5353 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5353`           | **_unchecked_** |
+| BLOCK:: F: MDNS on port 5355 (flooding)               | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `5355`           | **_unchecked_** |
+| BLOCK:: F: NetBIOS on port 137-139 (flooding)         | **_none_** | **_unchecked_** | `Block` | `in`      | **any** | `TCP/UDP` | **_unchecked_** | `SUB_PRIV_BOGON`       | **_unchecked_**    | `SUB_MULTI_BROAD`                            | `137-139`        | **_unchecked_** |
+
+#### ADMIN
+
+> Rules for management access to the firewall itself.  
+> Replace `MGMT` with your management interface and `192.168.1.0/24` with your admin subnet.  
+> These rules are the reason anti-lockout and sshlockout can be disabled.  
+> {: .prompt-info }
+
+| Description              | Interface | Quick         | Action | Direction | Version | Protocol | Invert Source   | Source           | Invert Destination | Destination     | Destination Port | Log             |
+| ------------------------ | --------- | ------------- | ------ | --------- | ------- | -------- | --------------- | ---------------- | ------------------ | --------------- | ---------------- | --------------- |
+| ALLOW:: ADM: Web GUI     | `MGMT`    | **_checked_** | `Pass` | `in`      | `IPv4`  | `TCP`    | **_unchecked_** | `192.168.1.0/24` | **_unchecked_**    | `This Firewall` | `443`            | **_checked_**   |
+| ALLOW:: ADM: SSH         | `MGMT`    | **_checked_** | `Pass` | `in`      | `IPv4`  | `TCP`    | **_unchecked_** | `192.168.1.0/24` | **_unchecked_**    | `This Firewall` | `22`             | **_checked_**   |
+| ALLOW:: ADM: ICMP (ping) | `MGMT`    | **_checked_** | `Pass` | `in`      | `any`   | `ICMP`   | **_unchecked_** | `192.168.1.0/24` | **_unchecked_**    | `This Firewall` | **any**          | **_unchecked_** |
 
 #### 00_WAN
 
@@ -351,19 +438,33 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 ### // Settings > Advanced
 
-| Section            | Key                   | Value                                                                                   |
-| :----------------- | :-------------------- | :-------------------------------------------------------------------------------------- |
-| **Bogon Networks** | Update Frequency      | `Weekly`                                                                                |
-| **Logging**        | Default block         | _checked_                                                                               |
-|                    | Default pass          | _checked_                                                                               |
-|                    | Outbound NAT          | _checked_                                                                               |
-|                    | Bogon networks        | _checked_                                                                               |
-|                    | Private networks      | _checked_                                                                               |
-| **Miscellaneous**  | Firewall Optimization | `conservative`                                                                          |
-|                    | Disable anti-lockout  | _checked_ (_Only when you created relevant firewall rules, else you will lock you out_) |
-|                    | Disable sshlockout    | _checked_ (_Only when you created relevant firewall rules, else you will lock you out_) |
+| Section            | Key                   | Value                                                                           |
+| :----------------- | :-------------------- | :------------------------------------------------------------------------------ |
+| **Bogon Networks** | Update Frequency      | `Daily`                                                                         |
+| **Logging**        | Default block         | _checked_                                                                       |
+|                    | Default pass          | _checked_                                                                       |
+|                    | Outbound NAT          | _checked_                                                                       |
+|                    | Bogon networks        | _checked_                                                                       |
+|                    | Private networks      | _checked_                                                                       |
+| **Miscellaneous**  | Firewall Optimization | `conservative`                                                                  |
+|                    | Disable anti-lockout  | _checked_ (_after the [admin rules](#admin) work - see below_)                  |
+|                    | Disable sshlockout    | _checked_ (_only with key-only SSH restricted to the admin subnet - see below_) |
+
+> **Before disabling anti-lockout / sshlockout:**
+>
+> - **Anti-lockout** automatically allows the Web UI on _every_ interface, which
+>   bypasses your firewall policy. Disable it only after the
+>   [admin access rules](#admin) are loaded and tested from a management host,
+>   and make sure you have **console/VGA access** as a fallback.
+> - **sshlockout** blocks source IPs that brute-force SSH. Disable it only when
+>   SSH is key-only (see [Administration](#administration)) and restricted to the
+>   admin subnet; otherwise keep it enabled.  
+>   {: .prompt-warning }
 
 ## \\\\ Services > \*
+
+> **DNS flow:** clients query Unbound (port 53) → local zones are forwarded to Dnsmasq (127.0.0.1:53053), everything else goes upstream via DoT to Quad9. DNSSEC validation happens in Unbound.  
+> {: .prompt-info }
 
 ### // Dnsmasq DNS & DHCP
 
@@ -396,14 +497,17 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 |                             | Register DHCP static mappings                | _unchecked_                                        |
 |                             | Prefer DHCP                                  | _unchecked_                                        |
 
+> DNSSEC is intentionally _unchecked_ here: Dnsmasq only serves local zones - upstream validation happens in [Unbound](#unbound-dns).  
+> {: .prompt-info }
+
 #### DHCP ranges
 
-> Define your required DHCP ranges for the subnets you created in **[Interfaces](#-interfaces--)**.  
+> Define your required DHCP ranges for the subnets you created in **[Interfaces](#interfaces)**.  
 > {: .prompt-info }
 
 #### DHCP options
 
-> Remember we defined the **DNS server** under **[Aliases](#-aliases--aliases)** with the alias `IP_S_DNS_NTP_INTERN`.  
+> Remember we defined the **DNS server** under **[Aliases](#aliases-aliases)** with the alias `IP_S_DNS_NTP_INTERN`.  
 > {: .prompt-info }
 
 | Entry (Description) | Key       | Value                   |
@@ -428,7 +532,7 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 | **Enable Unbound**                            | _checked_     |
 | Listen Port                                   | `53`          |
 | Network Interfaces                            | `All`         |
-| Enable DNSSEC Support                         | _unchecked_   |
+| Enable DNSSEC Support                         | _checked_     |
 | Enable DNS64 Support                          | _unchecked_   |
 | DNS64 Prefix                                  | _none_        |
 | Enable AAAA-only mode                         | _unchecked_   |
@@ -444,14 +548,14 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 #### Query Forwarding
 
-> Example with `home.local` when used as [internal domain](#general),  
-> plus `example.com` when set up with [ACME](#-acme).  
+> Example with `home.arpa` when used as [internal domain](#general),  
+> plus `example.com` when set up with [ACME](#acme).  
 > {: .prompt-info }
 
 | Entry (Description)      | Key           | Value                  |
 | :----------------------- | :------------ | :--------------------- |
 | **Dnsmasq (local)**      | Enabled       | _checked_              |
-|                          | Domain        | `home.local`           |
+|                          | Domain        | `home.arpa`            |
 |                          | Server IP     | `127.0.0.1`            |
 |                          | Server Port   | `53053`                |
 |                          | Forward first | _unchecked_            |
@@ -468,55 +572,59 @@ https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&
 
 #### Advanced
 
-| Section                    | Key                                          | Value                          |
-| :------------------------- | :------------------------------------------- | :----------------------------- |
-| **General Settings**       | Hide Identity                                | _checked_                      |
-|                            | Hide Version                                 | _checked_                      |
-|                            | Prefetch DNS Key Support                     | _checked_                      |
-|                            | Harden DNSSEC Data                           | _checked_                      |
-|                            | Aggressive NSEC                              | _checked_                      |
-|                            | Strict QNAME Minimisation                    |                                |
-|                            | Outgoing TCP Buffers                         | `32`                           |
-|                            | Incoming TCP Buffers                         | `64`                           |
-|                            | Number of queries per thread                 | `512`                          |
-|                            | Outgoing Range                               | `1024`                         |
-|                            | Jostle Timeout                               | `200`                          |
-|                            | Discard Timeout                              | `4000`                         |
-|                            | Private Domains                              | `home.local,local,example.com` |
-| **Serve Expired Settings** | Serve Expired Responses                      | _checked_                      |
-|                            | Expired Record Reply TTL value               | _none_                         |
-|                            | TTL for Expired Responses                    | _none_                         |
-|                            | Reset Expired Record TTL                     | _unchecked_                    |
-|                            | Client Expired Response Timeout              | _none_                         |
-| **Logging Settings**       | Extended Statistics                          | _checked_                      |
-|                            | Log Queries                                  | _unchecked_                    |
-|                            | Log Replies                                  | _unchecked_                    |
-|                            | Tag Queries and Replies                      | _unchecked_                    |
-|                            | Log local actions                            | _unchecked_                    |
-|                            | Log SERVFAIL                                 | _checked_                      |
-|                            | Log Level Verbosity                          | `Level 1`                      |
-|                            | Log validation level                         | `Level 0`                      |
-| **Cache Settings**         | Prefetch Support                             | _checked_                      |
-|                            | Unwanted Reply Threshold                     | _none_                         |
-|                            | Message Cache Size                           | `50m`                          |
-|                            | RRset Cache Size                             | `100m`                         |
-|                            | Maximum TTL for RRsets and messages          | `86400`                        |
-|                            | Maximum Negative TTL for RRsets and messages | `300`                          |
-|                            | Minimum TTL for RRsets and messages          | `60`                           |
-|                            | TTL for Host Cache entries                   | `900`                          |
-|                            | Keep probing down hosts                      | _checked_                      |
-|                            | Number of Hosts to cache                     | `2000`                         |
+| Section                    | Key                                          | Value                        |
+| :------------------------- | :------------------------------------------- | :--------------------------- |
+| **General Settings**       | Hide Identity                                | _checked_                    |
+|                            | Hide Version                                 | _checked_                    |
+|                            | Prefetch DNS Key Support                     | _checked_                    |
+|                            | Harden DNSSEC Data                           | _checked_                    |
+|                            | Aggressive NSEC                              | _checked_                    |
+|                            | Strict QNAME Minimisation                    |                              |
+|                            | Outgoing TCP Buffers                         | `32`                         |
+|                            | Incoming TCP Buffers                         | `64`                         |
+|                            | Number of queries per thread                 | `512`                        |
+|                            | Outgoing Range                               | `1024`                       |
+|                            | Jostle Timeout                               | `200`                        |
+|                            | Discard Timeout                              | `4000`                       |
+|                            | Private Domains                              | `home.arpa,home.local,local` |
+| **Serve Expired Settings** | Serve Expired Responses                      | _checked_                    |
+|                            | Expired Record Reply TTL value               | _none_                       |
+|                            | TTL for Expired Responses                    | _none_                       |
+|                            | Reset Expired Record TTL                     | _unchecked_                  |
+|                            | Client Expired Response Timeout              | _none_                       |
+| **Logging Settings**       | Extended Statistics                          | _checked_                    |
+|                            | Log Queries                                  | _unchecked_                  |
+|                            | Log Replies                                  | _unchecked_                  |
+|                            | Tag Queries and Replies                      | _unchecked_                  |
+|                            | Log local actions                            | _unchecked_                  |
+|                            | Log SERVFAIL                                 | _checked_                    |
+|                            | Log Level Verbosity                          | `Level 1`                    |
+|                            | Log validation level                         | `Level 0`                    |
+| **Cache Settings**         | Prefetch Support                             | _checked_                    |
+|                            | Unwanted Reply Threshold                     | _none_                       |
+|                            | Message Cache Size                           | `50m`                        |
+|                            | RRset Cache Size                             | `100m`                       |
+|                            | Maximum TTL for RRsets and messages          | `86400`                      |
+|                            | Maximum Negative TTL for RRsets and messages | `300`                        |
+|                            | Minimum TTL for RRsets and messages          | `60`                         |
+|                            | TTL for Host Cache entries                   | `900`                        |
+|                            | Keep probing down hosts                      | _checked_                    |
+|                            | Number of Hosts to cache                     | `2000`                       |
 
 #### DNS over TLS
 
 Use System Nameservers: **_unchecked_**
 
-| Server IP      | Server Port | Verify CN     | Description                                                 |
-| -------------- | ----------- | ------------- | ----------------------------------------------------------- |
-| 9.9.9.10       | 853         | dns.quad9.net | QUAD9::Unsecured: No Malware blocking, no DNSSEC validation |
-| 149.112.112.10 | 853         | dns.quad9.net | QUAD9::Unsecured: No Malware blocking, no DNSSEC validation |
-| 2620:fe::10    | 853         | dns.quad9.net | QUAD9::Unsecured: No Malware blocking, no DNSSEC validation |
-| 2620:fe::fe:10 | 853         | dns.quad9.net | QUAD9::Unsecured: No Malware blocking, no DNSSEC validation |
+| Server IP       | Server Port | Verify CN     | Description                                          |
+| --------------- | ----------- | ------------- | ---------------------------------------------------- |
+| 9.9.9.9         | 853         | dns.quad9.net | QUAD9::Secured: Malware blocking + DNSSEC validation |
+| 149.112.112.112 | 853         | dns.quad9.net | QUAD9::Secured: Malware blocking + DNSSEC validation |
+| 2620:fe::9      | 853         | dns.quad9.net | QUAD9::Secured: Malware blocking + DNSSEC validation |
+| 2620:fe::fe     | 853         | dns.quad9.net | QUAD9::Secured: Malware blocking + DNSSEC validation |
+
+> These are the Quad9 **Secured/Recommended** nodes - malware filtering and
+> DNSSEC validation.
+> {: .prompt-info }
 
 ### // ACME
 
@@ -533,11 +641,18 @@ Let's Encrypt:
 
 | Key            | Value                                    |
 | :------------- | :--------------------------------------- |
-| Enabled        | _checked_                                |
+| Enabled        | _checked_ (while testing)                |
 | Name           | `LEv2-Stage`                             |
 | Description    | `Let's Encrypt - Staging (testing only)` |
 | E-Mail Address | _add your email address_                 |
 | ACME CA        | `Let's Encrypt Test CA`                  |
+
+> Use the staging account only for the first test (avoids Let's Encrypt rate
+> limits). Once the production certificate works, disable the staging account.
+> Never edit a staging account into a production one - create two separate
+> accounts. Keep console access while testing the Web UI restart automation, and
+> enable auto-renewal both globally and per certificate.  
+> {: .prompt-warning }
 
 | Key            | Value                                  |
 | :------------- | :------------------------------------- |
@@ -639,17 +754,40 @@ Ionos Example [IPv4]:
 |                  | Rotate log               | `Weekly`    |
 |                  | Save logs                | `4`         |
 
-> IPS mode requires netmap support and may affect performance. Enable only if needed.  
+> IDS mode (`IPS mode` unchecked) uses PCAP and needs no netmap; IPS needs
+> netmap/divert, so disable hardware offload on the monitored interfaces.
+> Suricata and ZenArmor both use netmap: **never protect the same interface
+> with both**. Run ZenArmor on LAN/internal interfaces and Suricata on a
+> different one (often WAN) - note that WAN captures see post-NAT source
+> addresses, which can break `$HOME_NET`-based rules.
+> `Enable syslog alerts` and `Enable eve syslog output` both send alerts to
+> syslog; keep both only if you deliberately want both formats (EVE is best
+> sent to an external logging target).  
 > {: .prompt-warning }
 
 #### Download
 
-- Select **all** and click **Download & Update Rules**
-- Select **all** and click **Enable selected**
+- Download the rule sets you need (e.g. ET Open) and click **Download & Update Rules**.
+- Use **Policies** to choose alert/drop behaviour per ruleset instead of
+  enabling **all** rules - blanket enable is noisy and CPU-heavy.
 
 #### Schedule
 
 ![Cron Settings System](/assets/img/posts/opnsense/Cron_Settings_System_1683913306303_0.png)
+
+### // NTP
+
+OPNsense ships with **ntpd enabled by default**. It is the target of the
+[NAT rules](#nat-destination-nat) that forward client NTP traffic to the firewall.
+
+| Key              | Value                                               |
+| :--------------- | :-------------------------------------------------- |
+| **Interface**    | `All` (or your internal interfaces)                 |
+| **Access List**  | `allow` internal subnets (`SUB_PRIV4`, `SUB_PRIV6`) |
+| **Time Servers** | _default pool - verify reachable and synced_        |
+
+> Verify in **System > Settings > General** that the time zone is set correctly and the clock actually syncs - a wrong clock breaks TLS certificates and logging.  
+> {: .prompt-tip }
 
 ### // Monit
 
@@ -759,13 +897,18 @@ Monit
 #### General
 
 - choose: **Routed Mode (L3 Mode, Reporting + Blocking) with native netmap driver**
-- select your **Interfaces Selection**
+  > Native netmap needs a compatible NIC (`em`/`igb` are recommended). If the
+  > NIC is unsupported, use emulated netmap (`dev.netmap.admode=2`) instead.
+  > Keep hardware offload disabled (see [Interfaces](#interfaces)).
+  > {: .prompt-info }
+- select your **Interfaces Selection** - use **LAN/internal interfaces**, not
+  an interface already monitored by Suricata (see [Intrusion Detection](#intrusion-detection))
 - define your needs for **Deployment**
 - set your needs for **Logger**
 
 #### Cloud Threat Intel
 
-- Local Domains Name To Exclude From Cloud Queries: **`home.local,local`**
+- Local Domains Name To Exclude From Cloud Queries: **`home.arpa`**
 
 #### Updates & Health
 
